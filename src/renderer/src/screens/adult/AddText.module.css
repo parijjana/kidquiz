@@ -1,0 +1,14 @@
+.countInput {
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-md);
+  padding: var(--kq-space-2) var(--kq-space-3);
+  border-radius: var(--kq-radius-sm);
+  border: 2px solid color-mix(in srgb, var(--kq-text) 15%, var(--kq-surface));
+  background: var(--kq-surface);
+  color: var(--kq-text);
+  width: 120px;
+}
+
+.countInput:focus-visible {
+  border-color: var(--kq-primary);
+}

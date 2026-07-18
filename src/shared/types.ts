@@ -1,0 +1,190 @@
+/**
+ * All cross-process (main <-> preload <-> renderer) types live here.
+ * See ARCHITECTURE.md §4 (DB schema) and §5 (shared types & IPC contract).
+ */
+
+// ---------------------------------------------------------------------------
+// Entities (mirror the SQLite schema in §4, camelCased for TS use)
+// ---------------------------------------------------------------------------
+
+export interface Subject {
+  id: number
+  name: string
+  createdAt: string
+}
+
+export interface TextEntry {
+  id: number
+  subjectId: number
+  title: string
+  content: string
+  createdAt: string
+}
+
+export type QuestionType = 'mcq' | 'truefalse'
+
+export interface Question {
+  id: number
+  subjectId: number
+  textId: number | null
+  type: QuestionType
+  prompt: string
+  /** MCQ: 4 options. True/False: exactly ["True", "False"]. */
+  options: string[]
+  /** Index into `options`. */
+  correctIndex: number
+  explanation: string | null
+  approved: boolean
+  timesUsed: number
+  lastUsedAt: string | null
+  createdAt: string
+}
+
+/** Editable fields for `questions.update`. Approval is handled via `setApproved`. */
+export type QuestionPatch = Partial<
+  Pick<Question, 'prompt' | 'options' | 'correctIndex' | 'explanation' | 'type'>
+>
+
+export type QuizKind = 'single_text' | 'consolidated'
+
+export interface Quiz {
+  id: number
+  subjectId: number
+  name: string
+  kind: QuizKind
+  createdAt: string
+}
+
+/** A quiz together with its questions, ordered by `quiz_questions.position`. */
+export interface QuizWithQuestions extends Quiz {
+  questions: Question[]
+}
+
+export interface Attempt {
+  id: number
+  quizId: number
+  childName: string | null
+  score: number
+  total: number
+  takenAt: string
+}
+
+// ---------------------------------------------------------------------------
+// Models (see §8)
+// ---------------------------------------------------------------------------
+
+export interface ModelCatalogEntry {
+  id: string
+  /** Outcome-oriented label, e.g. "Recommended — good questions, works on most laptops". */
+  displayName: string
+  description: string
+  fileSizeBytes: number
+  minRamGB: number
+  /** Canonical huggingface.co/<repo>/resolve/main/<file> URL. */
+  hfUrl: string
+  recommended: boolean
+}
+
+export interface InstalledModel {
+  id: string
+  displayName: string
+  fileSizeBytes: number
+  filePath: string
+  active: boolean
+}
+
+export interface ModelStatus {
+  activeModelId: string | null
+  loaded: boolean
+  totalRamGB: number
+}
+
+// ---------------------------------------------------------------------------
+// Gemini provider (see §13)
+// ---------------------------------------------------------------------------
+
+/** Which engine produced/will produce the questions for a generation run. */
+export type GenerationProvider = 'gemini' | 'local'
+
+export interface GeminiStatus {
+  /** True when an encrypted key file exists and can be decrypted. */
+  keyPresent: boolean
+  /** Absolute path of the encrypted key file (shown to the user; deleting it removes the key). */
+  keyFilePath: string
+  /** False when OS-level encryption (Electron safeStorage) is unavailable; key cannot be saved. */
+  encryptionAvailable: boolean
+}
+
+// ---------------------------------------------------------------------------
+// Generation (see §6)
+// ---------------------------------------------------------------------------
+
+export type AgeBand = '5-7' | '8-9' | '10-11'
+
+export interface GenerationOptions {
+  ageBand: AgeBand
+  count: number
+}
+
+// ---------------------------------------------------------------------------
+// System
+// ---------------------------------------------------------------------------
+
+export interface PlatformInfo {
+  totalRamGB: number
+  platform: NodeJS.Platform
+}
+
+// ---------------------------------------------------------------------------
+// Push events (main -> renderer, see §5 "Push events")
+// ---------------------------------------------------------------------------
+
+export interface GenerationProgressEvent {
+  generationId: string
+  phase: 'loading_model' | 'generating'
+  chunkIndex: number
+  chunkCount: number
+  questionsSoFar: number
+  /** Engine handling this run. Absent from events emitted before provider routing existed. */
+  provider?: GenerationProvider
+  /** Cumulative tokens generated (local provider only; throttled). Absent for Gemini. */
+  tokensSoFar?: number
+}
+
+export interface GenerationDoneEvent {
+  generationId: string
+  textId: number
+  questionIds: number[]
+}
+
+export interface GenerationErrorEvent {
+  generationId: string
+  message: string
+}
+
+export interface ModelDownloadProgressEvent {
+  modelId: string
+  bytesDone: number
+  bytesTotal: number
+}
+
+export interface ModelDownloadDoneEvent {
+  modelId: string
+}
+
+export interface ModelDownloadErrorEvent {
+  modelId: string
+  message: string
+}
+
+/** Maps each push-event channel name to its payload type. Keys mirror `IPC_EVENTS` values. */
+export interface KidquizEventPayloadMap {
+  'generation:progress': GenerationProgressEvent
+  'generation:done': GenerationDoneEvent
+  'generation:error': GenerationErrorEvent
+  'model:downloadProgress': ModelDownloadProgressEvent
+  'model:downloadDone': ModelDownloadDoneEvent
+  'model:downloadError': ModelDownloadErrorEvent
+}
+
+export type KidquizEventName = keyof KidquizEventPayloadMap

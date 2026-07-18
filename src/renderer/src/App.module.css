@@ -1,0 +1,10 @@
+.printPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-family: var(--kq-font-body);
+  color: var(--kq-text);
+  text-align: center;
+  padding: var(--kq-space-5);
+}

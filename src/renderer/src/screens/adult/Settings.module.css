@@ -1,0 +1,102 @@
+.systemInfo {
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-sm);
+  color: var(--kq-text-muted);
+  margin: var(--kq-space-2) 0 0;
+}
+
+.dataCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--kq-space-3);
+}
+
+.aboutCard {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--kq-space-4);
+}
+
+.aboutTitle {
+  font-family: var(--kq-font-display);
+  font-size: var(--kq-fs-lg);
+  font-weight: 700;
+  margin: 0 0 var(--kq-space-1);
+}
+
+.geminiCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--kq-space-3);
+}
+
+.geminiCardTitle {
+  font-family: var(--kq-font-display);
+  font-size: var(--kq-fs-md);
+  font-weight: 700;
+  margin: 0;
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kq-space-3);
+  width: 100%;
+  counter-reset: kq-step;
+  padding-left: 0;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--kq-space-2);
+  padding-left: var(--kq-space-6);
+  position: relative;
+}
+
+.step::before {
+  counter-increment: kq-step;
+  content: counter(kq-step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--kq-primary);
+  color: var(--kq-primary-contrast);
+  font-family: var(--kq-font-display);
+  font-size: var(--kq-fs-sm);
+  font-weight: 700;
+}
+
+.keyForm {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--kq-space-3);
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.keyField {
+  flex: 1;
+  min-width: 220px;
+}
+
+.keyPath {
+  font-family: monospace;
+  font-size: var(--kq-fs-sm);
+  color: var(--kq-text);
+  background: var(--kq-bg);
+  border-radius: var(--kq-radius-sm);
+  padding: var(--kq-space-2) var(--kq-space-3);
+  margin: 0;
+  overflow-wrap: anywhere;
+  width: 100%;
+}

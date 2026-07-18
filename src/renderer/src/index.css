@@ -1,0 +1,70 @@
+/* Global base styles. Colors/radii/fonts/spacing come ONLY from the
+   `--kq-*` custom properties set by ThemeProvider (ARCHITECTURE.md §9) —
+   nothing here is a hardcoded color. The print stylesheet lives under
+   src/renderer/src/print/ and is out of scope here. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--kq-bg);
+  color: var(--kq-text);
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-md);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--kq-font-display);
+  margin: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: var(--kq-primary);
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Kid-friendly, high-visibility focus outlines everywhere. */
+:focus-visible {
+  outline: 3px solid var(--kq-accent);
+  outline-offset: 2px;
+  border-radius: var(--kq-radius-sm);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--kq-primary) 35%, transparent);
+}

@@ -1,0 +1,43 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--kq-space-4);
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.progressBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--kq-space-3);
+  width: 100%;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: var(--kq-space-3);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+@keyframes kq-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.pulse {
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-sm);
+  color: var(--kq-text-muted);
+  margin: 0;
+  animation: kq-pulse 1.6s ease-in-out infinite;
+}

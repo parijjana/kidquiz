@@ -1,0 +1,87 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--kq-space-2);
+  border: none;
+  cursor: pointer;
+  font-family: var(--kq-font-display);
+  font-weight: 700;
+  border-radius: var(--kq-radius-md);
+  transition:
+    transform 0.08s ease,
+    filter 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.button:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+.button:focus-visible {
+  outline: 3px solid var(--kq-accent);
+  outline-offset: 2px;
+}
+
+/* --- variants --- */
+
+.variant-primary {
+  background: var(--kq-primary);
+  color: var(--kq-primary-contrast);
+  box-shadow: var(--kq-shadow);
+}
+.variant-primary:not(:disabled):hover {
+  filter: brightness(1.06);
+}
+
+.variant-secondary {
+  background: var(--kq-secondary);
+  color: var(--kq-primary-contrast);
+}
+.variant-secondary:not(:disabled):hover {
+  filter: brightness(1.08);
+}
+
+.variant-ghost {
+  background: transparent;
+  color: var(--kq-primary);
+  border: 2px solid var(--kq-primary);
+}
+.variant-ghost:not(:disabled):hover {
+  background: color-mix(in srgb, var(--kq-primary) 12%, transparent);
+}
+
+/* --- sizes --- */
+
+.size-sm {
+  padding: var(--kq-space-1) var(--kq-space-3);
+  font-size: var(--kq-fs-sm);
+}
+
+.size-md {
+  padding: var(--kq-space-2) var(--kq-space-4);
+  font-size: var(--kq-fs-md);
+}
+
+.size-lg {
+  padding: var(--kq-space-3) var(--kq-space-5);
+  font-size: var(--kq-fs-lg);
+}
+
+/* Huge, thumb-friendly size for kid-mode screens. */
+.size-kid {
+  padding: var(--kq-space-5) var(--kq-space-6);
+  font-size: var(--kq-fs-xl);
+  border-radius: var(--kq-radius-lg);
+  min-height: 88px;
+  min-width: 160px;
+}
+
+.fullWidth {
+  width: 100%;
+}

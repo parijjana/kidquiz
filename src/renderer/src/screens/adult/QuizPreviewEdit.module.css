@@ -1,0 +1,51 @@
+.questionCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kq-space-3);
+  transition: opacity 0.15s ease;
+}
+
+.questionCardMuted {
+  opacity: 0.6;
+}
+
+.questionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kq-space-3);
+  flex-wrap: wrap;
+}
+
+.optionsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kq-space-2);
+}
+
+.optionRow {
+  display: flex;
+  align-items: center;
+  gap: var(--kq-space-2);
+}
+
+.optionInput {
+  flex: 1;
+}
+
+.tfRow {
+  display: flex;
+  gap: var(--kq-space-5);
+}
+
+.footerCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kq-space-3);
+  align-items: flex-start;
+}
+
+.nameField {
+  width: 100%;
+  max-width: 420px;
+}

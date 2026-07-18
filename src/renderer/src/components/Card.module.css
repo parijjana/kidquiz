@@ -1,0 +1,34 @@
+.card {
+  background: var(--kq-surface);
+  border-radius: var(--kq-radius-lg);
+  box-shadow: var(--kq-shadow);
+  color: var(--kq-text);
+}
+
+.padding-sm {
+  padding: var(--kq-space-3);
+}
+
+.padding-md {
+  padding: var(--kq-space-5);
+}
+
+.padding-lg {
+  padding: var(--kq-space-6);
+}
+
+.interactive {
+  cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.interactive:hover {
+  transform: translateY(-2px);
+}
+
+.interactive:focus-visible {
+  outline: 3px solid var(--kq-accent);
+  outline-offset: 2px;
+}

@@ -1,0 +1,42 @@
+.shell {
+  position: relative;
+  min-height: 100vh;
+  background: var(--kq-bg);
+  padding: var(--kq-space-6);
+  overflow: hidden;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+}
+
+.exitButton {
+  position: fixed;
+  top: var(--kq-space-4);
+  right: var(--kq-space-4);
+  background: var(--kq-surface);
+  color: var(--kq-text);
+  border: 2px solid var(--kq-secondary);
+  border-radius: var(--kq-radius-lg);
+  padding: var(--kq-space-3) var(--kq-space-5);
+  font-family: var(--kq-font-display);
+  font-size: var(--kq-fs-lg);
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--kq-shadow);
+  z-index: 10;
+}
+
+.exitButton:hover {
+  filter: brightness(0.98);
+}
+
+.content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - var(--kq-space-6) * 2);
+  z-index: 1;
+}

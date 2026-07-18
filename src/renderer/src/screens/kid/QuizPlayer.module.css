@@ -1,0 +1,134 @@
+.wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--kq-space-5);
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.centerRow {
+  display: flex;
+  justify-content: center;
+  padding: var(--kq-space-6) 0;
+}
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: var(--kq-space-2);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--kq-text) 15%, var(--kq-surface));
+  display: inline-block;
+}
+
+.dotDone {
+  background: var(--kq-success);
+}
+
+.dotCurrent {
+  outline: 3px solid var(--kq-accent);
+  outline-offset: 2px;
+}
+
+.progressLabel {
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-sm);
+  color: var(--kq-text-muted);
+  margin-left: var(--kq-space-2);
+}
+
+.questionCard {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--kq-space-5);
+}
+
+.prompt {
+  font-family: var(--kq-font-display);
+  font-size: var(--kq-fs-xl);
+  color: var(--kq-text);
+  text-align: center;
+  margin: 0;
+}
+
+.options {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--kq-space-3);
+}
+
+@media (min-width: 560px) {
+  .options {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.feedback {
+  display: flex;
+  align-items: center;
+  gap: var(--kq-space-4);
+  padding: var(--kq-space-4);
+  border-radius: var(--kq-radius-md);
+}
+
+.feedbackGood {
+  background: color-mix(in srgb, var(--kq-success) 16%, var(--kq-surface));
+}
+
+.feedbackSoft {
+  background: color-mix(in srgb, var(--kq-danger-soft) 22%, var(--kq-surface));
+}
+
+.feedbackText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kq-space-1);
+}
+
+.feedbackHeadline {
+  font-family: var(--kq-font-display);
+  font-size: var(--kq-fs-lg);
+  color: var(--kq-text);
+  margin: 0;
+}
+
+.explanation {
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-md);
+  color: var(--kq-text-muted);
+  margin: 0;
+}
+
+.wobble {
+  animation: kq-wobble 0.4s ease;
+}
+
+@keyframes kq-wobble {
+  0% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-6px);
+  }
+  50% {
+    transform: translateX(6px);
+  }
+  75% {
+    transform: translateX(-4px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}

@@ -1,0 +1,12 @@
+.modelCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kq-space-3);
+}
+
+.badgeRow {
+  display: flex;
+  gap: var(--kq-space-2);
+  flex-wrap: wrap;
+  margin-top: var(--kq-space-1);
+}

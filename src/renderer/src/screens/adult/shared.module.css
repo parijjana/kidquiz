@@ -1,0 +1,293 @@
+/* Shared layout/utility classes reused across the adult screens. Colors,
+   radii, spacing and fonts come ONLY from var(--kq-*) — ARCHITECTURE.md §9. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kq-space-5);
+  max-width: 960px;
+}
+
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--kq-space-4);
+  flex-wrap: wrap;
+}
+
+.title {
+  font-family: var(--kq-font-display);
+  font-size: var(--kq-fs-xl);
+  margin: 0;
+}
+
+.subtitle {
+  font-family: var(--kq-font-body);
+  color: var(--kq-text-muted);
+  margin: var(--kq-space-1) 0 0;
+  font-size: var(--kq-fs-md);
+}
+
+.headerActions {
+  display: flex;
+  gap: var(--kq-space-2);
+  flex-wrap: wrap;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kq-space-3);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kq-space-3);
+  flex-wrap: wrap;
+}
+
+.sectionTitle {
+  font-family: var(--kq-font-display);
+  font-size: var(--kq-fs-lg);
+  margin: 0;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kq-space-3);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kq-space-3);
+  flex-wrap: wrap;
+}
+
+.rowMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kq-space-1);
+  min-width: 0;
+}
+
+.rowTitle {
+  font-family: var(--kq-font-display);
+  font-size: var(--kq-fs-md);
+  font-weight: 700;
+  color: var(--kq-text);
+}
+
+.rowMeta {
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-sm);
+  color: var(--kq-text-muted);
+}
+
+.rowActions {
+  display: flex;
+  gap: var(--kq-space-2);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.muted {
+  color: var(--kq-text-muted);
+}
+
+.center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--kq-space-6);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--kq-space-2);
+  border-radius: var(--kq-radius-sm);
+  font-size: var(--kq-fs-sm);
+  font-weight: 700;
+  font-family: var(--kq-font-body);
+  white-space: nowrap;
+}
+
+.badgeSuccess {
+  background: color-mix(in srgb, var(--kq-success) 18%, var(--kq-surface));
+  color: var(--kq-success);
+}
+
+.badgeNeutral {
+  background: color-mix(in srgb, var(--kq-secondary) 18%, var(--kq-surface));
+  color: var(--kq-secondary);
+}
+
+.badgeAccent {
+  background: color-mix(in srgb, var(--kq-accent) 20%, var(--kq-surface));
+  color: color-mix(in srgb, var(--kq-accent) 75%, var(--kq-text));
+}
+
+.badgeWarn {
+  background: color-mix(in srgb, var(--kq-danger-soft) 28%, var(--kq-surface));
+  color: color-mix(in srgb, var(--kq-danger-soft) 65%, var(--kq-text));
+}
+
+/* --- forms --- */
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kq-space-1);
+}
+
+.label {
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-sm);
+  font-weight: 700;
+  color: var(--kq-text);
+}
+
+.input,
+.select {
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-md);
+  padding: var(--kq-space-2) var(--kq-space-3);
+  border-radius: var(--kq-radius-sm);
+  border: 2px solid color-mix(in srgb, var(--kq-text) 15%, var(--kq-surface));
+  background: var(--kq-surface);
+  color: var(--kq-text);
+  width: 100%;
+}
+
+.textarea {
+  composes: input;
+  resize: vertical;
+  min-height: 160px;
+  line-height: 1.5;
+}
+
+.input:focus-visible,
+.select:focus-visible,
+.textarea:focus-visible {
+  border-color: var(--kq-primary);
+}
+
+.hint {
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-sm);
+  color: var(--kq-text-muted);
+}
+
+.errorText {
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-sm);
+  color: color-mix(in srgb, var(--kq-danger-soft) 70%, var(--kq-text));
+}
+
+.radio,
+.checkbox {
+  accent-color: var(--kq-primary);
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.radioLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--kq-space-2);
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-md);
+  cursor: pointer;
+}
+
+/* --- selectable "choice card" (radio disguised as a card) --- */
+
+.choiceGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--kq-space-3);
+}
+
+.choiceCard {
+  display: block;
+  cursor: pointer;
+}
+
+.choiceCardBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kq-space-1);
+  height: 100%;
+  background: var(--kq-surface);
+  border: 2px solid color-mix(in srgb, var(--kq-text) 12%, var(--kq-surface));
+  border-radius: var(--kq-radius-lg);
+  padding: var(--kq-space-4);
+  box-shadow: var(--kq-shadow);
+  transition:
+    border-color 0.12s ease,
+    transform 0.12s ease;
+}
+
+.choiceCard:hover .choiceCardBody {
+  transform: translateY(-2px);
+}
+
+.choiceInput:focus-visible + .choiceCardBody {
+  outline: 3px solid var(--kq-accent);
+  outline-offset: 2px;
+}
+
+.choiceCardSelected .choiceCardBody {
+  border-color: var(--kq-primary);
+  background: color-mix(in srgb, var(--kq-primary) 8%, var(--kq-surface));
+}
+
+.choiceCardTitle {
+  font-family: var(--kq-font-display);
+  font-size: var(--kq-fs-md);
+  font-weight: 700;
+}
+
+.choiceCardMeta {
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-sm);
+  color: var(--kq-text-muted);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.footerButtons {
+  display: flex;
+  gap: var(--kq-space-2);
+  justify-content: flex-end;
+}
+
+.link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--kq-primary);
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-sm);
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+}

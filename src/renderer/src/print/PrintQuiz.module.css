@@ -1,0 +1,124 @@
+/*
+ * Print-only quiz sheet (ARCHITECTURE.md §10). Deliberately plain CSS with
+ * no theme custom properties — the printed sheet is always black text on
+ * white paper, regardless of the active in-app theme.
+ */
+
+.page {
+  min-height: 100vh;
+  background: #e8e8e8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px 64px;
+}
+
+.chrome {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.sheet {
+  background: #ffffff;
+  color: #000000;
+  width: 100%;
+  max-width: 800px;
+  padding: 48px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 12pt;
+  line-height: 1.5;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.sheetTitle {
+  font-size: 18pt;
+  margin: 0 0 16px 0;
+}
+
+.nameDateLine {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 32px;
+  font-size: 12pt;
+}
+
+.questionList {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.question {
+  margin-bottom: 24px;
+}
+
+.questionPrompt {
+  margin: 0 0 8px 0;
+  font-weight: bold;
+}
+
+.optionList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.checkbox {
+  display: inline-block;
+  width: 12pt;
+  height: 12pt;
+  border: 1.5pt solid #000000;
+  flex: 0 0 auto;
+}
+
+.optionLetter {
+  font-weight: bold;
+}
+
+.answerKey {
+  page-break-before: always;
+  margin-top: 32px;
+}
+
+.answerList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.answerItem {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.answerNumber {
+  font-weight: bold;
+  flex: 0 0 auto;
+}
+
+@media print {
+  .page {
+    background: #ffffff;
+    padding: 0;
+    display: block;
+  }
+
+  .chrome {
+    display: none;
+  }
+
+  .sheet {
+    box-shadow: none;
+    max-width: none;
+    padding: 0;
+  }
+}

@@ -1,0 +1,4 @@
+.scoreBadge {
+  font-size: var(--kq-fs-md);
+  padding: var(--kq-space-1) var(--kq-space-3);
+}
