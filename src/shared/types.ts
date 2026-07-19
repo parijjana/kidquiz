@@ -182,6 +182,8 @@ export interface GenerationDoneEvent {
   generationId: string
   textId: number
   questionIds: number[]
+  /** Candidates rejected as near-duplicates of existing/banked questions this run (§16). */
+  droppedDuplicates?: number
 }
 
 export interface GenerationErrorEvent {

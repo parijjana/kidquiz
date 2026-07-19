@@ -60,14 +60,20 @@ export function normalizePromptWords(prompt: string): Set<string> {
 
 /**
  * True when two prompts are near-duplicates: overlap coefficient of their content-word
- * sets >= {@link NEAR_DUPLICATE_THRESHOLD}. When either set is empty (a prompt made only
- * of stopwords), falls back to comparing the fully-normalised strings.
+ * sets >= {@link NEAR_DUPLICATE_THRESHOLD}.
+ *
+ * Short-prompt guard: when the smaller set has fewer than 2 content words, the overlap
+ * coefficient is meaningless (a 1-word set trivially scores 1.0 against anything containing
+ * that word, e.g. "What is a rainforest?" vs "Where are rainforests found?"). In that case we
+ * fall back to exact equality of the fully-normalised strings. Two content words is the
+ * minimum for the coefficient to be informative — and it still catches the real
+ * "...NOT a type of rainforest?" trio, whose sets are size 2-3.
  */
 export function arePromptsNearDuplicates(a: string, b: string): boolean {
   const setA = normalizePromptWords(a)
   const setB = normalizePromptWords(b)
 
-  if (setA.size === 0 || setB.size === 0) {
+  if (Math.min(setA.size, setB.size) < 2) {
     return normalizeFullPrompt(a) === normalizeFullPrompt(b)
   }
 

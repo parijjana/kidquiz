@@ -9,6 +9,7 @@
  */
 
 import type { AgeBand } from '@shared/types'
+import { countWords } from './chunker'
 
 /** Reading guidance per age band, injected into the system prompt (see §6). */
 const READING_GUIDANCE: Record<AgeBand, string> = {
@@ -46,26 +47,88 @@ function textBlock(chunkText: string): string[] {
   return ['Here is the text to base the questions on:', '"""', chunkText, '"""', '']
 }
 
+/** Max existing prompts to list, and per-prompt character cap, in the avoidance section. */
+const MAX_AVOIDANCE_ITEMS = 20
+const AVOIDANCE_ITEM_CHARS = 80
+
+/** Trims and hard-caps a prompt to `n` chars for the avoidance list. */
+function truncateTo(text: string, n: number): string {
+  const trimmed = text.trim()
+  return trimmed.length <= n ? trimmed : trimmed.slice(0, n).trimEnd()
+}
+
+/**
+ * Word budget for the avoidance list. ~350 words normally, shrinking as the chunk approaches
+ * the ~1200-word cap so the combined prompt still fits the 4096-token context — near-max
+ * chunks get a much shorter list rather than overflowing.
+ */
+function avoidanceWordBudget(chunkWords: number): number {
+  return Math.max(60, 350 - Math.max(0, chunkWords - 850))
+}
+
+/**
+ * Appends a "do not repeat these" section listing existing prompts (newest first, each
+ * truncated to 80 chars, up to 20 and within the word budget). No-op when there are none.
+ */
+function appendAvoidanceSection(
+  lines: string[],
+  existingPrompts: string[],
+  chunkText: string
+): void {
+  if (existingPrompts.length === 0) return
+  const budget = avoidanceWordBudget(countWords(chunkText))
+  const items: string[] = []
+  let words = 0
+  // newest first
+  for (let i = existingPrompts.length - 1; i >= 0; i--) {
+    if (items.length >= MAX_AVOIDANCE_ITEMS) break
+    const item = truncateTo(existingPrompts[i], AVOIDANCE_ITEM_CHARS)
+    if (item.length === 0) continue
+    const itemWords = countWords(item)
+    if (items.length > 0 && words + itemWords > budget) break
+    items.push(`- ${item}`)
+    words += itemWords
+  }
+  if (items.length === 0) return
+  lines.push(
+    '',
+    'Do not repeat these questions — every new question must ask about a different fact:',
+    ...items
+  )
+}
+
 /** Builds the user prompt for the MCQ call. */
-export function buildMcqUserPrompt(params: { count: number; chunkText: string }): string {
-  return [
+export function buildMcqUserPrompt(params: {
+  count: number
+  chunkText: string
+  existingPrompts?: string[]
+}): string {
+  const lines = [
     ...textBlock(params.chunkText),
     `Write ${countPhrase(params.count, 'multiple-choice question')}, based only on the text above.`,
     'For each question set "type" to "mcq" and give exactly 4 entries in "options": one correct answer plus three wrong but plausible distractors of the same kind or category as the correct answer.',
     'Set "correctIndex" (a number from 0 to 3) to the position of the correct option.',
     'Each question must be about a different fact from the text. Include a one-sentence "explanation" for every question.'
-  ].join('\n')
+  ]
+  appendAvoidanceSection(lines, params.existingPrompts ?? [], params.chunkText)
+  return lines.join('\n')
 }
 
 /** Builds the user prompt for the True/False call. */
-export function buildTrueFalseUserPrompt(params: { count: number; chunkText: string }): string {
-  return [
+export function buildTrueFalseUserPrompt(params: {
+  count: number
+  chunkText: string
+  existingPrompts?: string[]
+}): string {
+  const lines = [
     ...textBlock(params.chunkText),
     `Write ${countPhrase(params.count, 'true/false statement')} that a child can judge as True or False, based only on the text above.`,
     'Make roughly half of the statements false by changing a detail so the statement disagrees with the text; the rest should be true.',
     'For each statement set "type" to "truefalse", set "options" to exactly ["True", "False"], and set "correctIndex" to 0 if the statement is true or 1 if it is false.',
     'Each statement must be about a different fact from the text. Include a one-sentence "explanation" for every statement.'
-  ].join('\n')
+  ]
+  appendAvoidanceSection(lines, params.existingPrompts ?? [], params.chunkText)
+  return lines.join('\n')
 }
 
 /**

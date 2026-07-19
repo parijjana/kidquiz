@@ -143,6 +143,7 @@ async function generateForType(
   chunk: string,
   ageBand: AgeBand,
   chunkLabel: string,
+  existingPrompts: string[],
   onToken: (tokensSoFarInCall: number) => void
 ): Promise<unknown[]> {
   try {
@@ -150,8 +151,8 @@ async function generateForType(
       systemPrompt: buildSystemPrompt({ ageBand }),
       userPrompt:
         questionType === 'mcq'
-          ? buildMcqUserPrompt({ count, chunkText: chunk })
-          : buildTrueFalseUserPrompt({ count, chunkText: chunk }),
+          ? buildMcqUserPrompt({ count, chunkText: chunk, existingPrompts })
+          : buildTrueFalseUserPrompt({ count, chunkText: chunk, existingPrompts }),
       jsonSchema: questionType === 'mcq' ? mcqQuestionsSchema : trueFalseQuestionsSchema,
       temperature: TEMPERATURE,
       onToken
@@ -225,6 +226,7 @@ async function runGeneration(
     // Progress bookkeeping shared with the throttled emitter.
     const questionIds: number[] = []
     let questionsSoFar = 0
+    let droppedDuplicates = 0
     let currentChunkIndex = 0
     let lastProgressAt = Date.now()
 
@@ -299,14 +301,32 @@ async function runGeneration(
       const rawQuestions: unknown[] = []
       if (mcqCount > 0) {
         rawQuestions.push(
-          ...(await generateForType(session, 'mcq', mcqCount, chunk, opts.ageBand, chunkLabel, onToken))
+          ...(await generateForType(
+            session,
+            'mcq',
+            mcqCount,
+            chunk,
+            opts.ageBand,
+            chunkLabel,
+            seenPrompts,
+            onToken
+          ))
         )
         completedTokens += currentCallTokens
         currentCallTokens = 0
       }
       if (tfCount > 0) {
         rawQuestions.push(
-          ...(await generateForType(session, 'truefalse', tfCount, chunk, opts.ageBand, chunkLabel, onToken))
+          ...(await generateForType(
+            session,
+            'truefalse',
+            tfCount,
+            chunk,
+            opts.ageBand,
+            chunkLabel,
+            seenPrompts,
+            onToken
+          ))
         )
         completedTokens += currentCallTokens
         currentCallTokens = 0
@@ -326,6 +346,7 @@ async function runGeneration(
         }
         if (isDuplicatePrompt(valid.prompt, seenPrompts)) {
           console.warn('[generation] dropped near-duplicate question:', valid.prompt)
+          droppedDuplicates++
           continue
         }
         const id = questionsRepo.insert({
@@ -350,7 +371,8 @@ async function runGeneration(
     send(sender, IPC_EVENTS.generationDone, {
       generationId: state.id,
       textId,
-      questionIds
+      questionIds,
+      droppedDuplicates
     })
   } catch (error) {
     send(sender, IPC_EVENTS.generationError, {

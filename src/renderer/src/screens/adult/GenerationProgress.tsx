@@ -33,9 +33,9 @@ export function GenerationProgress({
   const { assets } = useTheme()
   const { Mascot } = assets
 
-  const [phase, setPhase] = useState<'loading_model' | 'generating' | 'done' | 'error'>(
-    'loading_model'
-  )
+  const [phase, setPhase] = useState<
+    'loading_model' | 'generating' | 'done' | 'error' | 'all_duplicates'
+  >('loading_model')
   const [chunkIndex, setChunkIndex] = useState(0)
   const [chunkCount, setChunkCount] = useState(0)
   const [questionsSoFar, setQuestionsSoFar] = useState(0)
@@ -54,7 +54,13 @@ export function GenerationProgress({
   useEffect(() => {
     const start = Date.now()
     const interval = window.setInterval(() => {
-      if (phaseRef.current === 'done' || phaseRef.current === 'error') return
+      if (
+        phaseRef.current === 'done' ||
+        phaseRef.current === 'error' ||
+        phaseRef.current === 'all_duplicates'
+      ) {
+        return
+      }
       setElapsedSeconds(Math.floor((Date.now() - start) / 1000))
     }, 1000)
     return () => window.clearInterval(interval)
@@ -81,10 +87,27 @@ export function GenerationProgress({
     useCallback(
       (payload) => {
         if (payload.generationId !== generationId) return
+
+        const dropped = payload.droppedDuplicates ?? 0
+        if (dropped > 0) {
+          showToast(
+            `Skipped ${dropped} ${dropped === 1 ? 'question' : 'questions'} that repeated ones you already have.`,
+            'info'
+          )
+        }
+
+        // Every candidate this run turned out to be a near-duplicate of an
+        // existing question — nothing new to review, so don't navigate away;
+        // explain what happened and offer a way forward instead.
+        if (dropped > 0 && payload.questionIds.length === 0) {
+          setPhase('all_duplicates')
+          return
+        }
+
         setPhase('done')
         navigate({ area: 'adult', screen: 'quiz-preview', subjectId, textId })
       },
-      [generationId, navigate, subjectId, textId]
+      [generationId, navigate, showToast, subjectId, textId]
     )
   )
 
@@ -169,6 +192,28 @@ export function GenerationProgress({
         )}
 
         {phase === 'done' && <p className={shared.muted}>All done! Taking you to review…</p>}
+
+        {phase === 'all_duplicates' && (
+          <div className={styles.progressBlock}>
+            <p className={shared.muted}>
+              Every question this made repeated ones you already have for this text. Have a
+              look at the existing questions, or try the Gemini helper for fresh angles.
+            </p>
+            <div className={shared.footerButtons}>
+              <Button
+                variant="secondary"
+                onClick={() => navigate({ area: 'adult', screen: 'quiz-preview', subjectId, textId })}
+              >
+                Review existing questions
+              </Button>
+              <Button
+                onClick={() => navigate({ area: 'adult', screen: 'subject-detail', subjectId })}
+              >
+                Back to subject
+              </Button>
+            </div>
+          </div>
+        )}
 
         {phase === 'error' && (
           <div className={styles.progressBlock}>
