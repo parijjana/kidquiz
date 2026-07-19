@@ -6,7 +6,7 @@ import * as quizzesRepo from '../../db/repositories/quizzes'
 
 /**
  * Registers the "quizzes" IPC namespace: createFromQuestions, createConsolidated,
- * list, get, remove (see §5).
+ * createDynamic, setChapter, updateName, setQuestions, list, get, remove (see §5, §15).
  */
 export function registerQuizzesHandlers(_mainWindow: BrowserWindow): void {
   ipcMain.handle(
@@ -24,6 +24,33 @@ export function registerQuizzesHandlers(_mainWindow: BrowserWindow): void {
     IPC.quizzes.createConsolidated,
     (_event, subjectId: number, name: string, count: number): number =>
       quizzesRepo.createConsolidated(subjectId, name, count)
+  )
+
+  ipcMain.handle(
+    IPC.quizzes.createDynamic,
+    (
+      _event,
+      subjectId: number,
+      chapterId: number | null,
+      count: number,
+      name?: string
+    ): number => quizzesRepo.createDynamic(subjectId, chapterId, count, name)
+  )
+
+  ipcMain.handle(
+    IPC.quizzes.setChapter,
+    (_event, quizId: number, chapterId: number | null): void =>
+      quizzesRepo.setChapter(quizId, chapterId)
+  )
+
+  ipcMain.handle(IPC.quizzes.updateName, (_event, quizId: number, name: string): Quiz =>
+    quizzesRepo.updateName(quizId, name)
+  )
+
+  ipcMain.handle(
+    IPC.quizzes.setQuestions,
+    (_event, quizId: number, questionIds: number[]): void =>
+      quizzesRepo.setQuestions(quizId, questionIds)
   )
 
   ipcMain.handle(IPC.quizzes.list, (_event, subjectId?: number): Quiz[] =>

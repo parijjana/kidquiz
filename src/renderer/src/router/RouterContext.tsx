@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
  * Hand-rolled router (no routing library — ARCHITECTURE.md §3/§12). `Route`
  * is a discriminated union covering every screen named in the spec:
  *  - adult: subjects list/detail, add-text, generation-progress,
- *    quiz-preview, model-setup, settings, history
+ *    quiz-preview, quiz-edit, model-setup, settings, history
  *  - kid: quiz-picker, player, results
  *  - print: quiz
  */
@@ -21,6 +21,7 @@ export type Route =
       generationId: string
     }
   | { area: 'adult'; screen: 'quiz-preview'; subjectId: number; textId: number }
+  | { area: 'adult'; screen: 'quiz-edit'; quizId: number }
   | { area: 'adult'; screen: 'model-setup' }
   | { area: 'adult'; screen: 'settings' }
   | { area: 'adult'; screen: 'history'; subjectId?: number }

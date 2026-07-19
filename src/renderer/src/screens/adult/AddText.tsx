@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { AgeBand } from '@shared/types'
+import type { AgeBand, Chapter } from '@shared/types'
 import { api } from '../../api'
 import { Button, useToast } from '../../components'
 import { useRouter } from '../../router/RouterContext'
@@ -44,6 +44,37 @@ export function AddText({ subjectId }: AddTextProps): React.JSX.Element {
   // retrying doesn't create a duplicate text row.
   const [savedTextId, setSavedTextId] = useState<number | null>(null)
 
+  // §15 chapter picker, with inline "New chapter…" creation.
+  const [chapters, setChapters] = useState<Chapter[]>([])
+  const [chapterId, setChapterId] = useState<number | null>(null)
+  const [creatingChapterInline, setCreatingChapterInline] = useState(false)
+  const [newChapterName, setNewChapterName] = useState('')
+  const [creatingChapter, setCreatingChapter] = useState(false)
+
+  useEffect(() => {
+    api.chapters
+      .list(subjectId)
+      .then(setChapters)
+      .catch((err: unknown) => showToast(errMessage(err), 'error'))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subjectId])
+
+  const handleCreateChapterInline = (): void => {
+    const trimmed = newChapterName.trim()
+    if (!trimmed) return
+    setCreatingChapter(true)
+    api.chapters
+      .create(subjectId, trimmed)
+      .then((chapter) => {
+        setChapters((current) => [...current, chapter])
+        setChapterId(chapter.id)
+        setCreatingChapterInline(false)
+        setNewChapterName('')
+      })
+      .catch((err: unknown) => showToast(errMessage(err), 'error'))
+      .finally(() => setCreatingChapter(false))
+  }
+
   // §13 engine hint — best-effort; the Gemini handlers may not exist yet, in
   // which case we silently assume the on-device helper (never crash/toast).
   const [engineHint, setEngineHint] = useState<'gemini' | 'local'>('local')
@@ -62,7 +93,8 @@ export function AddText({ subjectId }: AddTextProps): React.JSX.Element {
     setError(null)
     setModelIssue(false)
     try {
-      const textId = savedTextId ?? (await api.texts.add(subjectId, title.trim(), content))
+      const textId =
+        savedTextId ?? (await api.texts.add(subjectId, title.trim(), content, chapterId))
       setSavedTextId(textId)
       const generationId = await api.generation.start(textId, { ageBand, count })
       navigate({ area: 'adult', screen: 'generation-progress', subjectId, textId, generationId })
@@ -114,6 +146,63 @@ export function AddText({ subjectId }: AddTextProps): React.JSX.Element {
             rows={12}
           />
           <span className={shared.hint}>{wordCount(content)} words</span>
+        </div>
+
+        <div className={shared.formGroup}>
+          <label className={shared.label} htmlFor="text-chapter">
+            Chapter (optional)
+          </label>
+          {!creatingChapterInline ? (
+            <select
+              id="text-chapter"
+              className={shared.select}
+              value={chapterId === null ? '' : String(chapterId)}
+              onChange={(event) => {
+                if (event.target.value === '__new__') {
+                  setCreatingChapterInline(true)
+                  return
+                }
+                setChapterId(event.target.value === '' ? null : Number(event.target.value))
+              }}
+            >
+              <option value="">No chapter</option>
+              {chapters.map((chapter) => (
+                <option key={chapter.id} value={chapter.id}>
+                  {chapter.name}
+                </option>
+              ))}
+              <option value="__new__">+ New chapter…</option>
+            </select>
+          ) : (
+            <div className={styles.newChapterRow}>
+              <input
+                className={shared.input}
+                value={newChapterName}
+                onChange={(event) => setNewChapterName(event.target.value)}
+                placeholder="New chapter name"
+                autoFocus
+              />
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleCreateChapterInline}
+                disabled={!newChapterName.trim() || creatingChapter}
+              >
+                {creatingChapter ? 'Adding…' : 'Add'}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setCreatingChapterInline(false)
+                  setNewChapterName('')
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 

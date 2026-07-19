@@ -105,3 +105,28 @@ export const mcqQuestionsSchema = buildQuestionsSchema('mcq')
 
 /** Schema constraining every item to a True/False question. */
 export const trueFalseQuestionsSchema = buildQuestionsSchema('truefalse')
+
+/** Tiny schema for the suggested quiz-title call (ARCHITECTURE.md §16). */
+export const titleSchema: object = {
+  type: 'object',
+  properties: {
+    title: { type: 'string' }
+  },
+  required: ['title']
+}
+
+/**
+ * Builds the prompt asking for a short, fun, kid-friendly quiz title for this text (§16).
+ * Used for the one tiny extra generation call per run; its failure is non-fatal.
+ */
+export function buildTitlePrompt(chunkText: string): string {
+  return [
+    'Here is the text a quiz will be based on:',
+    '"""',
+    chunkText,
+    '"""',
+    '',
+    'Suggest one short, fun, kid-friendly title for this quiz.',
+    'Use at most 6 words. Do not use quotation marks or emoji. Put it in the "title" field.'
+  ].join('\n')
+}

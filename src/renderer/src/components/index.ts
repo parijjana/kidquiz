@@ -18,3 +18,6 @@ export type { EmptyStateProps } from './EmptyState'
 
 export { ToastProvider, useToast } from './Toast'
 export type { ToastVariant } from './Toast'
+
+export { GeminiProviderSection } from './GeminiProviderSection'
+export type { GeminiProviderSectionProps } from './GeminiProviderSection'

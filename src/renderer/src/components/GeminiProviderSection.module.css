@@ -1,0 +1,169 @@
+/* Self-contained styles for GeminiProviderSection — deliberately does not
+   depend on any screen-level CSS module, since this component is shared
+   across screens/adult/Settings.tsx and screens/adult/ModelSetup.tsx. */
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kq-space-3);
+}
+
+.heading {
+  font-family: var(--kq-font-display);
+  font-size: var(--kq-fs-lg);
+  margin: 0;
+}
+
+.intro {
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-md);
+  color: var(--kq-text-muted);
+  margin: 0;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  padding: 2px var(--kq-space-2);
+  border-radius: var(--kq-radius-sm);
+  font-size: var(--kq-fs-sm);
+  font-weight: 700;
+  font-family: var(--kq-font-body);
+}
+
+.badgeSuccess {
+  background: color-mix(in srgb, var(--kq-success) 18%, var(--kq-surface));
+  color: var(--kq-success);
+}
+
+.badgeNeutral {
+  background: color-mix(in srgb, var(--kq-secondary) 18%, var(--kq-surface));
+  color: var(--kq-secondary);
+}
+
+.badgeWarn {
+  background: color-mix(in srgb, var(--kq-danger-soft) 28%, var(--kq-surface));
+  color: color-mix(in srgb, var(--kq-danger-soft) 65%, var(--kq-text));
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--kq-space-3);
+}
+
+.cardTitle {
+  font-family: var(--kq-font-display);
+  font-size: var(--kq-fs-md);
+  font-weight: 700;
+  margin: 0;
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kq-space-3);
+  width: 100%;
+  counter-reset: kq-step;
+  padding-left: 0;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--kq-space-2);
+  padding-left: var(--kq-space-6);
+  position: relative;
+}
+
+.step::before {
+  counter-increment: kq-step;
+  content: counter(kq-step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--kq-primary);
+  color: var(--kq-primary-contrast);
+  font-family: var(--kq-font-display);
+  font-size: var(--kq-fs-sm);
+  font-weight: 700;
+}
+
+.stepText {
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-md);
+  color: var(--kq-text-muted);
+  margin: 0;
+}
+
+.keyForm {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--kq-space-3);
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.keyField {
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--kq-space-1);
+}
+
+.label {
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-sm);
+  font-weight: 700;
+  color: var(--kq-text);
+}
+
+.input {
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-md);
+  padding: var(--kq-space-2) var(--kq-space-3);
+  border-radius: var(--kq-radius-sm);
+  border: 2px solid color-mix(in srgb, var(--kq-text) 15%, var(--kq-surface));
+  background: var(--kq-surface);
+  color: var(--kq-text);
+  width: 100%;
+}
+
+.input:focus-visible {
+  border-color: var(--kq-primary);
+}
+
+.hint {
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-sm);
+  color: var(--kq-text-muted);
+  margin: 0;
+}
+
+.keyPath {
+  font-family: monospace;
+  font-size: var(--kq-fs-sm);
+  color: var(--kq-text);
+  background: var(--kq-bg);
+  border-radius: var(--kq-radius-sm);
+  padding: var(--kq-space-2) var(--kq-space-3);
+  margin: 0;
+  overflow-wrap: anywhere;
+  width: 100%;
+}
+
+.footerButtons {
+  display: flex;
+  gap: var(--kq-space-2);
+  justify-content: flex-end;
+}

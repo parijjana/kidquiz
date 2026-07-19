@@ -13,11 +13,22 @@ export interface Subject {
   createdAt: string
 }
 
+export interface Chapter {
+  id: number
+  subjectId: number
+  name: string
+  createdAt: string
+}
+
 export interface TextEntry {
   id: number
   subjectId: number
+  /** Optional chapter this text belongs to (see §15). */
+  chapterId: number | null
   title: string
   content: string
+  /** Model-suggested quiz title from generation (§16); user override always wins. */
+  suggestedQuizName: string | null
   createdAt: string
 }
 
@@ -45,11 +56,13 @@ export type QuestionPatch = Partial<
   Pick<Question, 'prompt' | 'options' | 'correctIndex' | 'explanation' | 'type'>
 >
 
-export type QuizKind = 'single_text' | 'consolidated'
+export type QuizKind = 'single_text' | 'consolidated' | 'dynamic'
 
 export interface Quiz {
   id: number
   subjectId: number
+  /** Optional chapter assignment (drag-to-reassign in the UI, see §15). */
+  chapterId: number | null
   name: string
   kind: QuizKind
   createdAt: string
@@ -67,6 +80,20 @@ export interface Attempt {
   score: number
   total: number
   takenAt: string
+}
+
+/** One answered question within an attempt, as supplied when recording (position = array order). */
+export interface AttemptAnswerInput {
+  questionId: number
+  /** Index into the question's options that the child chose. */
+  chosenIndex: number
+  correct: boolean
+}
+
+/** One answered question within a stored attempt (see §15 attempt_answers). */
+export interface AttemptAnswer extends AttemptAnswerInput {
+  attemptId: number
+  position: number
 }
 
 // ---------------------------------------------------------------------------

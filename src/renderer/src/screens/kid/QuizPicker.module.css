@@ -23,6 +23,13 @@
   margin: 0;
 }
 
+.subtitle {
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-lg);
+  color: var(--kq-text-muted);
+  margin: 0;
+}
+
 .nameLabel {
   font-family: var(--kq-font-body);
   font-size: var(--kq-fs-md);
@@ -53,26 +60,41 @@
   padding: var(--kq-space-6) 0;
 }
 
-.groups {
-  display: flex;
-  flex-direction: column;
-  gap: var(--kq-space-5);
-  width: 100%;
-}
-
-.subjectCard {
-  width: 100%;
-}
-
-.subjectTitle {
+.backButton {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  cursor: pointer;
   font-family: var(--kq-font-display);
   font-size: var(--kq-fs-lg);
+  font-weight: 700;
   color: var(--kq-secondary);
-  margin: 0 0 var(--kq-space-4) 0;
+  padding: var(--kq-space-2) 0;
 }
 
-.quizGrid {
+.backButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.choiceGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: var(--kq-space-4);
+  width: 100%;
+}
+
+.choiceCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--kq-space-1);
+}
+
+.note {
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-sm);
+  color: var(--kq-text-muted);
+  margin: 0;
+  text-align: center;
 }

@@ -6,7 +6,15 @@ import type {
   PlatformInfo
 } from '@shared/types'
 import { api, useKidquizEvent } from '../../api'
-import { Button, Card, Modal, ProgressBar, Spinner, useToast } from '../../components'
+import {
+  Button,
+  Card,
+  GeminiProviderSection,
+  Modal,
+  ProgressBar,
+  Spinner,
+  useToast
+} from '../../components'
 import shared from './shared.module.css'
 import styles from './ModelSetup.module.css'
 
@@ -169,10 +177,11 @@ export function ModelSetup(): React.JSX.Element {
     <div className={shared.page}>
       <div className={shared.pageHeader}>
         <div>
-          <h1 className={shared.title}>Model setup</h1>
+          <h1 className={shared.title}>Quiz helper setup</h1>
           <p className={shared.subtitle}>
-            KidQuiz uses a small AI helper that runs completely on this computer — download one
-            to start making questions. Nothing is sent to the internet.
+            KidQuiz needs a quiz helper to write questions. Use Gemini (cloud, fastest, needs a
+            free Google key) or download a helper that runs completely on this computer — no
+            internet needed once it&rsquo;s downloaded. You only need one.
           </p>
         </div>
       </div>
@@ -190,7 +199,19 @@ export function ModelSetup(): React.JSX.Element {
       )}
 
       <div className={shared.section}>
-        <h2 className={shared.sectionTitle}>Download a model</h2>
+        <Card padding="lg" className={styles.modelCard}>
+          <div className={shared.rowMain}>
+            <span className={shared.rowTitle}>Gemini (cloud)</span>
+            <span className={shared.rowMeta}>
+              Fastest option — needs a free Google account and an internet connection.
+            </span>
+          </div>
+          <GeminiProviderSection heading={null} />
+        </Card>
+      </div>
+
+      <div className={shared.section}>
+        <h2 className={shared.sectionTitle}>Download a model (on-device)</h2>
         {catalog === null && (
           <div className={shared.center}>
             <Spinner label="Loading model list…" />

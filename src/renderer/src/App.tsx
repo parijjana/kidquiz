@@ -10,6 +10,7 @@ import {
   AddText,
   GenerationProgress,
   QuizPreviewEdit,
+  QuizEdit,
   ModelSetup,
   Settings,
   History
@@ -35,6 +36,8 @@ function AdultScreens({ route }: { route: Extract<Route, { area: 'adult' }> }): 
       )
     case 'quiz-preview':
       return <QuizPreviewEdit subjectId={route.subjectId} textId={route.textId} />
+    case 'quiz-edit':
+      return <QuizEdit quizId={route.quizId} />
     case 'model-setup':
       return <ModelSetup />
     case 'settings':

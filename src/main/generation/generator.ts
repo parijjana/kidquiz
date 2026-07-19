@@ -27,8 +27,10 @@ import { chunkText, countWords } from './chunker'
 import {
   buildMcqUserPrompt,
   buildSystemPrompt,
+  buildTitlePrompt,
   buildTrueFalseUserPrompt,
   mcqQuestionsSchema,
+  titleSchema,
   trueFalseQuestionsSchema
 } from './prompts'
 import { isDuplicatePrompt } from './similarity'
@@ -161,6 +163,41 @@ async function generateForType(
   }
 }
 
+/** Reads the `title` string out of the title-call result, or '' if absent/malformed. */
+function extractTitle(parsed: unknown): string {
+  if (parsed !== null && typeof parsed === 'object' && 'title' in parsed) {
+    const title = (parsed as { title: unknown }).title
+    if (typeof title === 'string') return title
+  }
+  return ''
+}
+
+/**
+ * Asks the model (one tiny extra call) for a short kid-friendly quiz title based on the first
+ * chunk, and stores it as the text's suggested quiz name. Strictly non-fatal (§16): any
+ * failure is logged and swallowed.
+ */
+async function suggestQuizTitle(
+  session: GenerationSession,
+  textId: number,
+  firstChunk: string
+): Promise<void> {
+  try {
+    const parsed = await session.generateStructured({
+      systemPrompt: 'You write short, fun, kid-friendly quiz titles.',
+      userPrompt: buildTitlePrompt(firstChunk),
+      jsonSchema: titleSchema,
+      temperature: TEMPERATURE
+    })
+    const title = extractTitle(parsed).trim().slice(0, 60).trim()
+    if (title.length > 0) {
+      textsRepo.setSuggestedQuizName(textId, title)
+    }
+  } catch (error) {
+    console.warn('[generation] quiz-title suggestion failed (non-fatal):', error)
+  }
+}
+
 /** Runs the full pipeline for a generation, emitting progress/done/error events. */
 async function runGeneration(
   state: GenerationState,
@@ -273,6 +310,12 @@ async function runGeneration(
         )
         completedTokens += currentCallTokens
         currentCallTokens = 0
+      }
+
+      // Once per run, right after the first chunk's batches: suggest a quiz title from that
+      // chunk. Non-fatal and emits no extra progress events (§16).
+      if (index === 0) {
+        await suggestQuizTitle(session, textId, chunk)
       }
 
       for (const rawQuestion of rawQuestions) {

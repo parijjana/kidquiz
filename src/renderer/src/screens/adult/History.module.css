@@ -1,4 +1,46 @@
+.attemptCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kq-space-3);
+}
+
 .scoreBadge {
   font-size: var(--kq-fs-md);
   padding: var(--kq-space-1) var(--kq-space-3);
+}
+
+.detailWrap {
+  border-top: 2px solid color-mix(in srgb, var(--kq-text) 10%, var(--kq-surface));
+  padding-top: var(--kq-space-3);
+}
+
+.detailList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kq-space-3);
+  padding-left: var(--kq-space-4);
+}
+
+.detailRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kq-space-1);
+}
+
+.detailPrompt {
+  font-family: var(--kq-font-body);
+  font-weight: 700;
+  color: var(--kq-text);
+  margin: 0;
+}
+
+.detailAnswerLine {
+  display: flex;
+  align-items: center;
+  gap: var(--kq-space-2);
+  flex-wrap: wrap;
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-sm);
+  color: var(--kq-text-muted);
+  margin: 0;
 }

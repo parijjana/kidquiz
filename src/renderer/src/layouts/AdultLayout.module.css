@@ -80,6 +80,27 @@
 
 .content {
   flex: 1;
-  padding: var(--kq-space-6);
   overflow-y: auto;
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kq-space-4);
+  flex-wrap: wrap;
+  padding: var(--kq-space-3) var(--kq-space-6);
+  background: color-mix(in srgb, var(--kq-accent) 18%, var(--kq-surface));
+  border-bottom: 3px solid var(--kq-accent);
+}
+
+.bannerText {
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-md);
+  color: var(--kq-text);
+  margin: 0;
+}
+
+.contentBody {
+  padding: var(--kq-space-6);
 }

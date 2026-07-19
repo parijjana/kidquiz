@@ -266,6 +266,64 @@ view via `window.print()` on that route.
 - Do not add dependencies beyond those named in this spec without orchestrator approval.
 - Do not commit; the orchestrator handles git.
 
+## 15. Chapters, dynamic quizzes, attempt answers (v1.2)
+
+Schema migrates to `user_version = 2` (migration runs when opening a v1 DB; existing data
+must survive intact):
+- `chapters(id, subject_id REFERENCES subjects ON DELETE CASCADE, name, created_at)`.
+  Chapters are optional subdivisions of a subject.
+- `texts` gains `chapter_id REFERENCES chapters ON DELETE SET NULL` (nullable) and
+  `suggested_quiz_name TEXT` (model-suggested title, §16).
+- `quizzes` gains `chapter_id` (nullable, same semantics) and kind `'dynamic'` — the CHECK
+  constraint must be extended via table rebuild (create-copy-drop-rename), preserving rows.
+- `attempt_answers(attempt_id REFERENCES attempts ON DELETE CASCADE, question_id
+  REFERENCES questions ON DELETE CASCADE, position, chosen_index, correct, PRIMARY KEY
+  (attempt_id, position))` — the exact questions asked and answers chosen persist forever.
+
+**The bank is not the quiz.** Quiz length is decoupled from how many questions exist:
+`quizzes.createDynamic(subjectId, chapterId|null, count, name?)` samples `count` approved
+questions from the subject's bank (filtered to the chapter's texts when a chapter is
+given) using the §4 recirculation ordering (times_used ASC, last_used_at ASC, random
+tiebreak), materializes a quiz row (kind 'dynamic') + quiz_questions, bumps usage, and
+returns the id. 10 questions in the bank can serve endless 5-question quizzes.
+`attempts.record` now also takes the per-question answers and writes attempt_answers in
+the same transaction.
+
+**Quiz name collisions:** quiz insert auto-suffixes within the subject — "Name",
+"Name (2)", "Name (3)" — at the repository level.
+
+**Quiz editing:** saved quizzes are editable — rename, remove questions, add approved
+bank questions, reorder — via `quizzes.updateName` / `quizzes.setQuestions(quizId,
+questionIds)` (full replacement, positions = array order; does not re-bump usage).
+`quizzes.setChapter(quizId, chapterId|null)` supports drag-to-reassign in the UI.
+
+## 16. v1.2 UX (banner, provider placeholder, Gemini in Model screen, chapters UI)
+
+- **Generation title suggestion:** during generation the model is asked (tiny separate
+  schema call `{title: string}` on the first chunk; failure is non-fatal) for a short
+  kid-friendly quiz title, stored via `texts.suggested_quiz_name` and prefilled into
+  quiz-name inputs for that text; user override always wins.
+- **Provider placeholder:** GenerationProgress must NOT claim a provider before it knows:
+  show neutral copy ("Getting the quiz maker ready…") until the first progress event that
+  carries `provider`, then switch to the Gemini / on-device copy. Never show on-device
+  copy as a default guess.
+- **Persistent provider banner:** in the adult layout, when NO local model is installed
+  AND no Gemini key is saved, show a persistent friendly banner ("KidQuiz needs a quiz
+  helper — add one to get started") that navigates to the Model screen. It re-checks on
+  screen changes and disappears once either provider exists.
+- **Gemini lives in the Model screen too:** Gemini is a provider; the Model screen shows
+  it alongside the local catalog — full key management (guide, save, encrypted-file path,
+  delete, privacy copy) via a shared component reused by Settings (which keeps it too).
+- **Chapters UI:** subject detail groups texts and quizzes by chapter (plus "No chapter"),
+  with chapter create/rename/delete and a chapter picker (with inline create) on AddText.
+  Quizzes can be dragged onto chapter headers to reassign (HTML5 drag-and-drop, with an
+  accessible non-drag fallback in the quiz row menu).
+- **Kid flow:** pick a subject → optional chapter → quiz length (5/10/15/20, capped at
+  the available approved-question count) → app creates a dynamic quiz → play. Saved
+  quizzes stay playable from the adult side.
+- **History:** attempts expand to show each question asked, the answer chosen, and
+  right/wrong — read from attempt_answers.
+
 ## 12. Agent protocol
 
 You are one of several narrow-scope agents. Work ONLY on the files your task assigns.

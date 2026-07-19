@@ -1,0 +1,25 @@
+.nameField {
+  max-width: 520px;
+}
+
+.nameRow {
+  display: flex;
+  gap: var(--kq-space-3);
+  align-items: center;
+}
+
+.nameInput {
+  flex: 1;
+}
+
+.questionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kq-space-3);
+  flex-wrap: wrap;
+}
+
+.typeBadge {
+  align-self: flex-start;
+}

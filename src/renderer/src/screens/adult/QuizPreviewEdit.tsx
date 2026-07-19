@@ -205,7 +205,9 @@ export function QuizPreviewEdit({ subjectId, textId }: QuizPreviewEditProps): Re
         const text = texts.find((t) => t.id === textId)
         if (text) {
           setTextTitle(text.title)
-          setQuizName((current) => (nameTouched ? current : `${text.title} quiz`))
+          setQuizName((current) =>
+            nameTouched ? current : text.suggestedQuizName?.trim() || `${text.title} quiz`
+          )
         }
       })
       .catch((err: unknown) => showToast(errMessage(err), 'error'))

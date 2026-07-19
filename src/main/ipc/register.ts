@@ -2,6 +2,7 @@ import type { BrowserWindow } from 'electron'
 import { registerSystemHandlers } from './handlers/system'
 import { registerSubjectsHandlers } from './handlers/subjects'
 import { registerTextsHandlers } from './handlers/texts'
+import { registerChaptersHandlers } from './handlers/chapters'
 import { registerQuestionsHandlers } from './handlers/questions'
 import { registerQuizzesHandlers } from './handlers/quizzes'
 import { registerAttemptsHandlers } from './handlers/attempts'
@@ -17,6 +18,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   registerSystemHandlers(mainWindow)
   registerSubjectsHandlers(mainWindow)
   registerTextsHandlers(mainWindow)
+  registerChaptersHandlers(mainWindow)
   registerQuestionsHandlers(mainWindow)
   registerQuizzesHandlers(mainWindow)
   registerAttemptsHandlers(mainWindow)

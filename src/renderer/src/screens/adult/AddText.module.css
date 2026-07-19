@@ -12,3 +12,11 @@
 .countInput:focus-visible {
   border-color: var(--kq-primary);
 }
+
+.newChapterRow {
+  display: flex;
+  align-items: center;
+  gap: var(--kq-space-2);
+  flex-wrap: wrap;
+}
+

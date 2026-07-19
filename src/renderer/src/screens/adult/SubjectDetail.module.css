@@ -1,0 +1,65 @@
+.chapterSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kq-space-4);
+  border: 2px dashed transparent;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.chapterSectionDragOver {
+  border-color: var(--kq-accent);
+  background: color-mix(in srgb, var(--kq-accent) 10%, var(--kq-surface));
+}
+
+.chapterHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kq-space-3);
+  flex-wrap: wrap;
+}
+
+.chapterTitle {
+  font-family: var(--kq-font-display);
+  font-size: var(--kq-fs-lg);
+  color: var(--kq-secondary);
+  margin: 0;
+}
+
+.subsection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kq-space-2);
+}
+
+.subsectionTitle {
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-sm);
+  font-weight: 700;
+  color: var(--kq-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+.chapterSelect {
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-sm);
+  padding: var(--kq-space-1) var(--kq-space-2);
+  border-radius: var(--kq-radius-sm);
+  border: 2px solid color-mix(in srgb, var(--kq-text) 15%, var(--kq-surface));
+  background: var(--kq-surface);
+  color: var(--kq-text);
+  max-width: 160px;
+}
+
+.quizRowDragging {
+  opacity: 0.5;
+}
+
+.dragHint {
+  font-family: var(--kq-font-body);
+  font-size: var(--kq-fs-sm);
+  color: var(--kq-text-muted);
+  margin: 0;
+}

@@ -2,6 +2,9 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@shared/ipcChannels'
 import type {
   Attempt,
+  AttemptAnswer,
+  AttemptAnswerInput,
+  Chapter,
   GeminiStatus,
   GenerationOptions,
   InstalledModel,
@@ -39,11 +42,28 @@ const kidquiz = {
   },
 
   texts: {
-    add: (subjectId: number, title: string, content: string): Promise<number> =>
-      ipcRenderer.invoke(IPC.texts.add, subjectId, title, content),
+    add: (
+      subjectId: number,
+      title: string,
+      content: string,
+      chapterId?: number | null
+    ): Promise<number> =>
+      ipcRenderer.invoke(IPC.texts.add, subjectId, title, content, chapterId ?? null),
     listBySubject: (subjectId: number): Promise<TextEntry[]> =>
       ipcRenderer.invoke(IPC.texts.listBySubject, subjectId),
+    setChapter: (id: number, chapterId: number | null): Promise<void> =>
+      ipcRenderer.invoke(IPC.texts.setChapter, id, chapterId),
     remove: (id: number): Promise<void> => ipcRenderer.invoke(IPC.texts.remove, id)
+  },
+
+  chapters: {
+    list: (subjectId: number): Promise<Chapter[]> =>
+      ipcRenderer.invoke(IPC.chapters.list, subjectId),
+    create: (subjectId: number, name: string): Promise<Chapter> =>
+      ipcRenderer.invoke(IPC.chapters.create, subjectId, name),
+    rename: (id: number, name: string): Promise<Chapter> =>
+      ipcRenderer.invoke(IPC.chapters.rename, id, name),
+    remove: (id: number): Promise<void> => ipcRenderer.invoke(IPC.chapters.remove, id)
   },
 
   generation: {
@@ -75,6 +95,19 @@ const kidquiz = {
       ipcRenderer.invoke(IPC.quizzes.createFromQuestions, subjectId, name, kind, questionIds),
     createConsolidated: (subjectId: number, name: string, count: number): Promise<number> =>
       ipcRenderer.invoke(IPC.quizzes.createConsolidated, subjectId, name, count),
+    createDynamic: (
+      subjectId: number,
+      chapterId: number | null,
+      count: number,
+      name?: string
+    ): Promise<number> =>
+      ipcRenderer.invoke(IPC.quizzes.createDynamic, subjectId, chapterId, count, name),
+    setChapter: (quizId: number, chapterId: number | null): Promise<void> =>
+      ipcRenderer.invoke(IPC.quizzes.setChapter, quizId, chapterId),
+    updateName: (quizId: number, name: string): Promise<Quiz> =>
+      ipcRenderer.invoke(IPC.quizzes.updateName, quizId, name),
+    setQuestions: (quizId: number, questionIds: number[]): Promise<void> =>
+      ipcRenderer.invoke(IPC.quizzes.setQuestions, quizId, questionIds),
     list: (subjectId?: number): Promise<Quiz[]> =>
       ipcRenderer.invoke(IPC.quizzes.list, subjectId),
     get: (id: number): Promise<QuizWithQuestions> => ipcRenderer.invoke(IPC.quizzes.get, id),
@@ -86,10 +119,13 @@ const kidquiz = {
       quizId: number,
       childName: string | null,
       score: number,
-      total: number
+      total: number,
+      answers: AttemptAnswerInput[]
     ): Promise<number> =>
-      ipcRenderer.invoke(IPC.attempts.record, quizId, childName, score, total),
-    list: (quizId?: number): Promise<Attempt[]> => ipcRenderer.invoke(IPC.attempts.list, quizId)
+      ipcRenderer.invoke(IPC.attempts.record, quizId, childName, score, total, answers),
+    list: (quizId?: number): Promise<Attempt[]> => ipcRenderer.invoke(IPC.attempts.list, quizId),
+    answers: (attemptId: number): Promise<AttemptAnswer[]> =>
+      ipcRenderer.invoke(IPC.attempts.answers, attemptId)
   },
 
   models: {

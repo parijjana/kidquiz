@@ -1,6 +1,6 @@
 {
   "name": "kidquiz",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Offline desktop app for turning pasted text into kid-friendly quizzes, powered by a local LLM.",
   "author": "KidQuiz",

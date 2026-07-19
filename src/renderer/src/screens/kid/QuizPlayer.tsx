@@ -4,7 +4,7 @@ import { Button, Card, EmptyState, Spinner, useToast } from '../../components'
 import { useRouter } from '../../router/RouterContext'
 import { useTheme } from '../../theme/ThemeProvider'
 import { getChildName } from './KidSession'
-import type { QuizWithQuestions } from '@shared/types'
+import type { AttemptAnswerInput, QuizWithQuestions } from '@shared/types'
 import styles from './QuizPlayer.module.css'
 
 export interface QuizPlayerProps {
@@ -43,6 +43,7 @@ export function QuizPlayer({ quizId }: QuizPlayerProps): React.JSX.Element {
   const [answered, setAnswered] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [results, setResults] = useState<boolean[]>([])
+  const [answers, setAnswers] = useState<AttemptAnswerInput[]>([])
   const [celebrate, setCelebrate] = useState(false)
   const [wobble, setWobble] = useState(false)
   const [finishing, setFinishing] = useState(false)
@@ -64,6 +65,7 @@ export function QuizPlayer({ quizId }: QuizPlayerProps): React.JSX.Element {
         setAnswered(false)
         setSelectedIndex(null)
         setResults([])
+        setAnswers([])
         setCelebrate(false)
         setWobble(false)
         setLoadState('ready')
@@ -98,6 +100,11 @@ export function QuizPlayer({ quizId }: QuizPlayerProps): React.JSX.Element {
       next[currentIndex] = correct
       return next
     })
+    setAnswers((prev) => {
+      const next = [...prev]
+      next[currentIndex] = { questionId: question.id, chosenIndex: originalIndex, correct }
+      return next
+    })
     setCelebrate(correct)
     setWobble(!correct)
   }
@@ -123,7 +130,7 @@ export function QuizPlayer({ quizId }: QuizPlayerProps): React.JSX.Element {
     const score = results.filter(Boolean).length
     setFinishing(true)
     try {
-      await api.attempts.record(quiz.id, getChildName(), score, total)
+      await api.attempts.record(quiz.id, getChildName(), score, total, answers)
     } catch {
       showToast("Hmm, we couldn't save that score, but here it is!", 'error')
     } finally {

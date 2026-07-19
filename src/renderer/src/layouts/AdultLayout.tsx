@@ -1,4 +1,7 @@
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import { api } from '../api'
+import { Button } from '../components'
 import { useRouter } from '../router/RouterContext'
 import type { Route } from '../router/RouterContext'
 import { useTheme } from '../theme/ThemeProvider'
@@ -20,7 +23,8 @@ const NAV_ITEMS: NavItem[] = [
         r.screen === 'subject-detail' ||
         r.screen === 'add-text' ||
         r.screen === 'generation-progress' ||
-        r.screen === 'quiz-preview')
+        r.screen === 'quiz-preview' ||
+        r.screen === 'quiz-edit')
   },
   {
     label: 'Quizzes',
@@ -43,10 +47,43 @@ const NAV_ITEMS: NavItem[] = [
  * Adult-area chrome: a sidebar (branding, main nav, "Kid mode" switch) plus
  * a scrollable content pane. See ARCHITECTURE.md §3.
  */
+/**
+ * True once we know for certain neither provider is set up: no local model
+ * installed AND no Gemini key saved. Errors from either check (e.g. the
+ * Gemini handlers being unavailable) are treated as "absent", never thrown.
+ */
+function useNeedsProviderBanner(route: Route): boolean {
+  const [needsProvider, setNeedsProvider] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      api.models.installed().catch(() => []),
+      api.gemini.status().catch(() => ({ keyPresent: false }))
+    ]).then(([installed, gemini]) => {
+      if (cancelled) return
+      setNeedsProvider(installed.length === 0 && !gemini.keyPresent)
+    })
+    return () => {
+      cancelled = true
+    }
+    // Re-check on every route change (cheap calls) so the banner disappears
+    // as soon as a provider becomes available — ARCHITECTURE.md §16.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route])
+
+  return needsProvider
+}
+
+/**
+ * Adult-area chrome: a sidebar (branding, main nav, "Kid mode" switch) plus
+ * a scrollable content pane. See ARCHITECTURE.md §3.
+ */
 export function AdultLayout({ children }: { children: ReactNode }): React.JSX.Element {
   const { route, navigate } = useRouter()
   const { assets } = useTheme()
   const { Mascot } = assets
+  const needsProvider = useNeedsProviderBanner(route)
 
   return (
     <div className={styles.shell}>
@@ -82,7 +119,19 @@ export function AdultLayout({ children }: { children: ReactNode }): React.JSX.El
         </button>
       </aside>
 
-      <main className={styles.content}>{children}</main>
+      <main className={styles.content}>
+        {needsProvider && (
+          <div className={styles.banner}>
+            <p className={styles.bannerText}>
+              KidQuiz needs a quiz helper — add one to get started.
+            </p>
+            <Button size="sm" onClick={() => navigate({ area: 'adult', screen: 'model-setup' })}>
+              Set up a quiz helper
+            </Button>
+          </div>
+        )}
+        <div className={styles.contentBody}>{children}</div>
+      </main>
     </div>
   )
 }

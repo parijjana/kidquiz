@@ -110,11 +110,20 @@ export function GenerationProgress({
 
   const modelIssue = errorMessage !== null && errorMessage.toLowerCase().includes('model')
 
+  // §16: never guess a provider before an event actually names one — show
+  // neutral copy until then, then switch to the Gemini / on-device wording.
   const providerLabel =
-    provider === 'gemini'
-      ? 'Using Gemini (fast)'
-      : 'Using the on-device helper — this can take a few minutes on this computer'
-  const providerBadgeClass = provider === 'gemini' ? shared.badgeSuccess : shared.badgeNeutral
+    provider === undefined
+      ? 'Getting the quiz maker ready…'
+      : provider === 'gemini'
+        ? 'Using Gemini (fast)'
+        : 'Using the on-device helper — this can take a few minutes on this computer'
+  const providerBadgeClass =
+    provider === undefined
+      ? shared.badgeNeutral
+      : provider === 'gemini'
+        ? shared.badgeSuccess
+        : shared.badgeNeutral
 
   return (
     <div className={shared.page}>

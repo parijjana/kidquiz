@@ -15,7 +15,14 @@ export const IPC = {
   texts: {
     add: 'texts:add',
     listBySubject: 'texts:listBySubject',
+    setChapter: 'texts:setChapter',
     remove: 'texts:remove'
+  },
+  chapters: {
+    list: 'chapters:list',
+    create: 'chapters:create',
+    rename: 'chapters:rename',
+    remove: 'chapters:remove'
   },
   generation: {
     start: 'generation:start',
@@ -31,13 +38,18 @@ export const IPC = {
   quizzes: {
     createFromQuestions: 'quizzes:createFromQuestions',
     createConsolidated: 'quizzes:createConsolidated',
+    createDynamic: 'quizzes:createDynamic',
+    setChapter: 'quizzes:setChapter',
+    updateName: 'quizzes:updateName',
+    setQuestions: 'quizzes:setQuestions',
     list: 'quizzes:list',
     get: 'quizzes:get',
     remove: 'quizzes:remove'
   },
   attempts: {
     record: 'attempts:record',
-    list: 'attempts:list'
+    list: 'attempts:list',
+    answers: 'attempts:answers'
   },
   models: {
     catalog: 'models:catalog',
