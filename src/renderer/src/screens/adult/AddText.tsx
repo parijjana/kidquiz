@@ -20,8 +20,16 @@ const AGE_BANDS: { id: AgeBand; label: string; description: string }[] = [
   { id: '10-11', label: 'Ages 10–11', description: 'More advanced vocabulary and ideas.' }
 ]
 
-const MIN_COUNT = 5
-const MAX_COUNT = 30
+type GenerationMode = 'generate' | 'import'
+
+const MODE_OPTIONS: { id: GenerationMode; label: string; description: string }[] = [
+  { id: 'generate', label: 'A reading text', description: 'Write new questions from it.' },
+  {
+    id: 'import',
+    label: 'Ready-made questions',
+    description: 'Tidy them up and add them to the bank.'
+  }
+]
 
 function wordCount(text: string): number {
   const trimmed = text.trim()
@@ -34,8 +42,8 @@ export function AddText({ subjectId }: AddTextProps): React.JSX.Element {
 
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
+  const [mode, setMode] = useState<GenerationMode>('generate')
   const [ageBand, setAgeBand] = useState<AgeBand>('8-9')
-  const [count, setCount] = useState(10)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [modelIssue, setModelIssue] = useState(false)
@@ -96,7 +104,7 @@ export function AddText({ subjectId }: AddTextProps): React.JSX.Element {
       const textId =
         savedTextId ?? (await api.texts.add(subjectId, title.trim(), content, chapterId))
       setSavedTextId(textId)
-      const generationId = await api.generation.start(textId, { ageBand, count })
+      const generationId = await api.generation.start(textId, { ageBand, mode })
       navigate({ area: 'adult', screen: 'generation-progress', subjectId, textId, generationId })
     } catch (err) {
       const message = errMessage(err)
@@ -116,6 +124,30 @@ export function AddText({ subjectId }: AddTextProps): React.JSX.Element {
           <p className={shared.subtitle}>
             Paste in something to read, then KidQuiz will make quiz questions from it.
           </p>
+        </div>
+      </div>
+
+      <div className={shared.section}>
+        <h2 className={shared.sectionTitle}>What are you pasting?</h2>
+        <div className={shared.choiceGrid}>
+          {MODE_OPTIONS.map((option) => (
+            <label
+              key={option.id}
+              className={`${shared.choiceCard} ${mode === option.id ? shared.choiceCardSelected : ''}`}
+            >
+              <input
+                type="radio"
+                name="generation-mode"
+                className={shared.srOnly}
+                checked={mode === option.id}
+                onChange={() => setMode(option.id)}
+              />
+              <span className={shared.choiceCardBody}>
+                <span className={shared.choiceCardTitle}>{option.label}</span>
+                <span className={shared.choiceCardMeta}>{option.description}</span>
+              </span>
+            </label>
+          ))}
         </div>
       </div>
 
@@ -230,26 +262,6 @@ export function AddText({ subjectId }: AddTextProps): React.JSX.Element {
         </div>
       </div>
 
-      <div className={shared.section}>
-        <div className={shared.formGroup}>
-          <label className={shared.label} htmlFor="question-count">
-            How many questions? ({MIN_COUNT}–{MAX_COUNT})
-          </label>
-          <input
-            id="question-count"
-            type="number"
-            min={MIN_COUNT}
-            max={MAX_COUNT}
-            className={styles.countInput}
-            value={count}
-            onChange={(event) => {
-              const next = Number(event.target.value)
-              setCount(Number.isNaN(next) ? MIN_COUNT : next)
-            }}
-          />
-        </div>
-      </div>
-
       {error && (
         <div className={shared.section}>
           <p className={shared.errorText}>{error}</p>
@@ -279,11 +291,16 @@ export function AddText({ subjectId }: AddTextProps): React.JSX.Element {
         >
           Back to subject
         </Button>
-        <Button
-          onClick={() => void handleSubmit()}
-          disabled={!canSubmit || count < MIN_COUNT || count > MAX_COUNT}
-        >
-          {submitting ? 'Creating questions…' : savedTextId ? 'Try again' : 'Create questions'}
+        <Button onClick={() => void handleSubmit()} disabled={!canSubmit}>
+          {submitting
+            ? mode === 'generate'
+              ? 'Making questions…'
+              : 'Adding your questions…'
+            : savedTextId
+              ? 'Try again'
+              : mode === 'generate'
+                ? 'Make questions'
+                : 'Add questions'}
         </Button>
       </div>
     </div>

@@ -291,6 +291,15 @@ export function SubjectDetail({ subjectId }: SubjectDetailProps): React.JSX.Elem
   const loading = chapters === null || texts === null || quizzes === null
   const chapterList = chapters ?? []
 
+  const bankTotals = Object.values(textCounts).reduce(
+    (acc, count) => ({
+      approved: acc.approved + count.approved,
+      pending: acc.pending + count.pending
+    }),
+    { approved: 0, pending: 0 }
+  )
+  const bankTotal = bankTotals.approved + bankTotals.pending
+
   const textGroups = texts ? groupByChapter(texts, chapterList) : []
   const quizGroups = quizzes ? groupByChapter(quizzes, chapterList) : []
 
@@ -414,6 +423,12 @@ export function SubjectDetail({ subjectId }: SubjectDetailProps): React.JSX.Elem
         <div>
           <h1 className={shared.title}>{subject ? subject.name : 'Subject'}</h1>
           <p className={shared.subtitle}>Texts, questions, and quizzes for this subject.</p>
+          {!loading && bankTotal > 0 && (
+            <p className={shared.rowMeta}>
+              {bankTotal} {bankTotal === 1 ? 'question' : 'questions'} in the bank — {bankTotals.approved}{' '}
+              approved, {bankTotals.pending} awaiting review
+            </p>
+          )}
         </div>
         <div className={shared.headerActions}>
           <Button

@@ -148,9 +148,19 @@ export interface GeminiStatus {
 
 export type AgeBand = '5-7' | '8-9' | '10-11'
 
+/**
+ * Options for a generation run. There is deliberately NO question count: the model
+ * extracts as many good questions as the text supports (the bank is the reservoir;
+ * quiz length is chosen separately at quiz time, see §15).
+ */
 export interface GenerationOptions {
   ageBand: AgeBand
-  count: number
+  /**
+   * 'generate' — write new questions from a reading text.
+   * 'import' — the pasted text already contains questions; reformat them into bank
+   * questions (MCQ/True-False), inventing plausible distractors only where missing.
+   */
+  mode: 'generate' | 'import'
 }
 
 // ---------------------------------------------------------------------------

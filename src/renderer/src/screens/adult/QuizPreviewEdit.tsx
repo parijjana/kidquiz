@@ -264,6 +264,12 @@ export function QuizPreviewEdit({ subjectId, textId }: QuizPreviewEditProps): Re
           <p className={shared.subtitle}>
             {textTitle ? `For "${textTitle}"` : 'Check each question, then approve the ones to use.'}
           </p>
+          {questions && questions.length > 0 && (
+            <span className={`${shared.badge} ${shared.badgeNeutral} ${styles.countBadge}`}>
+              {questions.length} {questions.length === 1 ? 'question' : 'questions'} —{' '}
+              {approvedIds.length} approved
+            </span>
+          )}
         </div>
         {questions && questions.length > 0 && (
           <div className={shared.headerActions}>

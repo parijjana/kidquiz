@@ -2,10 +2,12 @@
  * Generation orchestrator. See ARCHITECTURE.md §6.
  *
  * `startGeneration` returns a generation id immediately and runs the pipeline
- * asynchronously: load the text, chunk it, ask the model for a proportional mix of
- * questions per chunk, post-validate every returned question, and insert the valid ones
- * with `approved = 0`. Progress, completion, and errors are pushed to the renderer via the
- * §5 push events. Only one generation may run at a time.
+ * asynchronously: load the text, chunk it, and per chunk run one MCQ batch and one True/False
+ * batch. In 'generate' mode the model writes as many good questions as the text supports
+ * (bounded only by per-chunk schema ceilings); in 'import' mode it reformats the questions the
+ * pasted text already contains. Every returned question is shape-validated and dedup-checked,
+ * and the valid ones are inserted with `approved = 0`. Progress, completion, and errors are
+ * pushed to the renderer via the §5 push events. Only one generation may run at a time.
  */
 
 import { randomUUID } from 'node:crypto'
@@ -23,14 +25,18 @@ import { loadActiveModel } from '../llm/inference'
 import { createGenerationSession, type GenerationSession } from '../llm/provider'
 import * as questionsRepo from '../db/repositories/questions'
 import * as textsRepo from '../db/repositories/texts'
-import { chunkText, countWords } from './chunker'
+import { chunkText } from './chunker'
 import {
+  buildImportMcqUserPrompt,
+  buildImportTrueFalseUserPrompt,
   buildMcqUserPrompt,
   buildSystemPrompt,
   buildTitlePrompt,
   buildTrueFalseUserPrompt,
+  mcqImportSchema,
   mcqQuestionsSchema,
   titleSchema,
+  trueFalseImportSchema,
   trueFalseQuestionsSchema
 } from './prompts'
 import { isDuplicatePrompt } from './similarity'
@@ -55,22 +61,6 @@ function send<K extends KidquizEventName>(
   if (!sender.isDestroyed()) {
     sender.send(channel, payload)
   }
-}
-
-/**
- * Computes the question mix for a chunk: `ceil(count * chunkWords / totalWords)` questions,
- * at least 2, split ~70% MCQ / ~30% True-False (both at least 1).
- */
-function distributeCounts(
-  count: number,
-  chunkWords: number,
-  totalWords: number
-): { mcqCount: number; tfCount: number } {
-  const proportional = Math.ceil((count * chunkWords) / totalWords)
-  const chunkTotal = Math.max(2, proportional)
-  const tfCount = Math.max(1, Math.round(chunkTotal * 0.3))
-  const mcqCount = Math.max(1, chunkTotal - tfCount)
-  return { mcqCount, tfCount }
 }
 
 interface ValidQuestion {
@@ -130,16 +120,36 @@ function validateQuestion(raw: unknown): ValidQuestion | null {
   }
 }
 
+/** Selects the user-prompt builder and output schema for a (mode, type) pair. */
+function promptAndSchemaFor(
+  mode: GenerationOptions['mode'],
+  questionType: QuestionType,
+  chunk: string,
+  existingPrompts: string[]
+): { userPrompt: string; jsonSchema: object } {
+  const params = { chunkText: chunk, existingPrompts }
+  if (mode === 'import') {
+    return questionType === 'mcq'
+      ? { userPrompt: buildImportMcqUserPrompt(params), jsonSchema: mcqImportSchema }
+      : { userPrompt: buildImportTrueFalseUserPrompt(params), jsonSchema: trueFalseImportSchema }
+  }
+  return questionType === 'mcq'
+    ? { userPrompt: buildMcqUserPrompt(params), jsonSchema: mcqQuestionsSchema }
+    : { userPrompt: buildTrueFalseUserPrompt(params), jsonSchema: trueFalseQuestionsSchema }
+}
+
 /**
  * Runs one type-constrained model call through the run's provider session and returns its raw
- * question items. `onToken` receives the provider's cumulative-within-this-call token count
+ * question items. There is no per-call count: the schema caps how many the model may return
+ * (uncapped 'generate' up to the ceiling; 'import' reformats whatever complete questions the
+ * chunk holds). `onToken` receives the provider's cumulative-within-this-call token count
  * (local provider only; Gemini never invokes it). A failure is logged and yields an empty
  * array so the rest of the run can continue.
  */
 async function generateForType(
   session: GenerationSession,
   questionType: QuestionType,
-  count: number,
+  mode: GenerationOptions['mode'],
   chunk: string,
   ageBand: AgeBand,
   chunkLabel: string,
@@ -147,13 +157,11 @@ async function generateForType(
   onToken: (tokensSoFarInCall: number) => void
 ): Promise<unknown[]> {
   try {
+    const { userPrompt, jsonSchema } = promptAndSchemaFor(mode, questionType, chunk, existingPrompts)
     const parsed = await session.generateStructured({
-      systemPrompt: buildSystemPrompt({ ageBand }),
-      userPrompt:
-        questionType === 'mcq'
-          ? buildMcqUserPrompt({ count, chunkText: chunk, existingPrompts })
-          : buildTrueFalseUserPrompt({ count, chunkText: chunk, existingPrompts }),
-      jsonSchema: questionType === 'mcq' ? mcqQuestionsSchema : trueFalseQuestionsSchema,
+      systemPrompt: buildSystemPrompt({ ageBand, mode }),
+      userPrompt,
+      jsonSchema,
       temperature: TEMPERATURE,
       onToken
     })
@@ -210,7 +218,6 @@ async function runGeneration(
     const text = textsRepo.getById(textId)
     const chunks = chunkText(text.content)
     const chunkCount = chunks.length
-    const totalWords = chunks.reduce((sum, chunk) => sum + countWords(chunk), 0) || 1
 
     // One provider session per run: prefers Gemini when a key is present, else local. It can
     // flip permanently to local mid-run on a Gemini failure, so `session.current()` is read
@@ -290,51 +297,45 @@ async function runGeneration(
       currentChunkIndex = index + 1
       const chunk = chunks[index]
       const chunkLabel = `chunk ${currentChunkIndex}/${chunkCount}`
-      const { mcqCount, tfCount } = distributeCounts(
-        opts.count,
-        countWords(chunk),
-        totalWords
-      )
 
-      // One model call per type enforces the ~70/30 mix by construction. Skip a call whose
-      // count is 0. After each call, fold its final token count into the run total.
+      // One model call per type enforces the ~70/30 mix by construction. Both batches always
+      // run (schema `minItems: 0` lets a thin chunk yield few or none); the schema ceiling —
+      // not a requested count — bounds how many come back. After each call, fold its final
+      // token count into the run total.
       const rawQuestions: unknown[] = []
-      if (mcqCount > 0) {
-        rawQuestions.push(
-          ...(await generateForType(
-            session,
-            'mcq',
-            mcqCount,
-            chunk,
-            opts.ageBand,
-            chunkLabel,
-            seenPrompts,
-            onToken
-          ))
-        )
-        completedTokens += currentCallTokens
-        currentCallTokens = 0
-      }
-      if (tfCount > 0) {
-        rawQuestions.push(
-          ...(await generateForType(
-            session,
-            'truefalse',
-            tfCount,
-            chunk,
-            opts.ageBand,
-            chunkLabel,
-            seenPrompts,
-            onToken
-          ))
-        )
-        completedTokens += currentCallTokens
-        currentCallTokens = 0
-      }
+      rawQuestions.push(
+        ...(await generateForType(
+          session,
+          'mcq',
+          opts.mode,
+          chunk,
+          opts.ageBand,
+          chunkLabel,
+          seenPrompts,
+          onToken
+        ))
+      )
+      completedTokens += currentCallTokens
+      currentCallTokens = 0
+      rawQuestions.push(
+        ...(await generateForType(
+          session,
+          'truefalse',
+          opts.mode,
+          chunk,
+          opts.ageBand,
+          chunkLabel,
+          seenPrompts,
+          onToken
+        ))
+      )
+      completedTokens += currentCallTokens
+      currentCallTokens = 0
 
       // Once per run, right after the first chunk's batches: suggest a quiz title from that
-      // chunk. Non-fatal and emits no extra progress events (§16).
-      if (index === 0) {
+      // chunk. Skipped in 'import' mode — the pasted text is a question list, not a reading
+      // passage, so a topic title is not meaningful. Non-fatal; emits no extra events (§16).
+      if (index === 0 && opts.mode === 'generate') {
         await suggestQuizTitle(session, textId, chunk)
       }
 

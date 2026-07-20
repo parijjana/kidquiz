@@ -1,15 +1,22 @@
 /**
  * Prompt builders and the per-chunk output schemas for the generation pipeline.
- * See ARCHITECTURE.md §6 steps 3 & 5.
+ * See ARCHITECTURE.md §6 & §15.
  *
- * The type mix (~70% MCQ / 30% True-False) is enforced BY CONSTRUCTION: the generator makes
- * one model call per type, each constrained to a schema whose `type` field is fixed to a
- * single value. This prevents the model from returning every item as an MCQ (which it did
- * when a single schema permitted either type on every item).
+ * Two modes:
+ * - 'generate' — write new questions from a reading text (uncapped: as many good questions as
+ *   the text supports, bounded only by per-chunk schema ceilings).
+ * - 'import' — the pasted text is already a set of questions; reformat the complete ones into
+ *   bank questions, inventing plausible distractors only where missing.
+ *
+ * In both modes the ~70% MCQ / 30% True-False split is enforced BY CONSTRUCTION: the generator
+ * makes one model call per type, each constrained to a schema whose `type` field is fixed to a
+ * single value, so the model can't collapse everything into one type.
  */
 
-import type { AgeBand } from '@shared/types'
+import type { AgeBand, GenerationOptions } from '@shared/types'
 import { countWords } from './chunker'
+
+type GenerationMode = GenerationOptions['mode']
 
 /** Reading guidance per age band, injected into the system prompt (see §6). */
 const READING_GUIDANCE: Record<AgeBand, string> = {
@@ -19,11 +26,25 @@ const READING_GUIDANCE: Record<AgeBand, string> = {
 }
 
 /**
- * Builds the system prompt: role, reading level for the age band, and the hard rules
- * every question must follow (shared by both the MCQ and True/False calls).
+ * Builds the system prompt: role, reading level for the age band, and the hard rules for the
+ * mode. Shared by that mode's MCQ and True/False calls. The age band governs language
+ * simplification in both modes.
  */
-export function buildSystemPrompt(params: { ageBand: AgeBand }): string {
+export function buildSystemPrompt(params: { ageBand: AgeBand; mode: GenerationMode }): string {
   const guidance = READING_GUIDANCE[params.ageBand]
+  if (params.mode === 'import') {
+    return [
+      `You are a friendly teacher preparing quiz questions for a primary-school child aged ${params.ageBand}.`,
+      'The text below is already a set of quiz questions (in any format — numbered lists, question/answer pairs, worksheet quizzes). Reformat the questions it contains.',
+      `Write everything at this reading level: ${guidance}.`,
+      'Follow these rules exactly:',
+      '- Only reformat questions that actually appear in the text. NEVER invent new questions that are not there.',
+      "- Preserve each original question's meaning, its correct answer, and its difficulty. Simplify only the wording to the reading level.",
+      '- A question may be cut off at the very start or end of the text; ignore any incomplete fragment you cannot reformat faithfully.',
+      '- Keep an encouraging, positive tone.',
+      'Respond with ONLY the JSON described by the required schema — no extra text.'
+    ].join('\n')
+  }
   return [
     `You are a friendly teacher writing quiz questions for a primary-school child aged ${params.ageBand}.`,
     `Write everything at this reading level: ${guidance}.`,
@@ -31,20 +52,16 @@ export function buildSystemPrompt(params: { ageBand: AgeBand }): string {
     '- Use simple vocabulary the child can read on their own.',
     '- Every question must be answerable using ONLY the text provided. Never rely on outside knowledge or facts not stated in the text.',
     '- Each question must cover a DIFFERENT fact from the text. Never ask about the same fact twice or reword an earlier question.',
+    '- Cover every distinct fact worth testing, but favour quality over quantity: stop when the facts run out rather than padding with trivial or repetitive questions.',
     '- Give every question a single short, kid-friendly sentence explaining why the answer is correct.',
     '- Keep an encouraging, positive tone.',
     'Respond with ONLY the JSON described by the required schema — no extra text.'
   ].join('\n')
 }
 
-/** Renders a "<n> <noun>" phrase with correct pluralisation. */
-function countPhrase(count: number, singular: string): string {
-  return `${count} ${singular}${count === 1 ? '' : 's'}`
-}
-
 /** Shared "here is the text" preamble for the user prompts. */
 function textBlock(chunkText: string): string[] {
-  return ['Here is the text to base the questions on:', '"""', chunkText, '"""', '']
+  return ['Here is the text:', '"""', chunkText, '"""', '']
 }
 
 /** Max existing prompts to list, and per-prompt character cap, in the avoidance section. */
@@ -97,15 +114,15 @@ function appendAvoidanceSection(
   )
 }
 
-/** Builds the user prompt for the MCQ call. */
+/** Builds the user prompt for the 'generate' MCQ call (uncapped — as many as the text supports). */
 export function buildMcqUserPrompt(params: {
-  count: number
   chunkText: string
   existingPrompts?: string[]
 }): string {
   const lines = [
     ...textBlock(params.chunkText),
-    `Write ${countPhrase(params.count, 'multiple-choice question')}, based only on the text above.`,
+    'Write as many good multiple-choice questions as this text supports — cover every distinct fact worth testing, based only on the text above.',
+    'Quality over quantity: stop when the facts run out. Do not pad with trivial, obvious, or repetitive questions.',
     'For each question set "type" to "mcq" and give exactly 4 entries in "options": one correct answer plus three wrong but plausible distractors of the same kind or category as the correct answer.',
     'Set "correctIndex" (a number from 0 to 3) to the position of the correct option.',
     'Each question must be about a different fact from the text. Include a one-sentence "explanation" for every question.'
@@ -114,15 +131,15 @@ export function buildMcqUserPrompt(params: {
   return lines.join('\n')
 }
 
-/** Builds the user prompt for the True/False call. */
+/** Builds the user prompt for the 'generate' True/False call (uncapped). */
 export function buildTrueFalseUserPrompt(params: {
-  count: number
   chunkText: string
   existingPrompts?: string[]
 }): string {
   const lines = [
     ...textBlock(params.chunkText),
-    `Write ${countPhrase(params.count, 'true/false statement')} that a child can judge as True or False, based only on the text above.`,
+    'Write as many good true/false statements as this text supports — cover every distinct fact worth testing that a child can judge as True or False, based only on the text above.',
+    'Quality over quantity: stop when the facts run out. Do not pad with trivial, obvious, or repetitive statements.',
     'Make roughly half of the statements false by changing a detail so the statement disagrees with the text; the rest should be true.',
     'For each statement set "type" to "truefalse", set "options" to exactly ["True", "False"], and set "correctIndex" to 0 if the statement is true or 1 if it is false.',
     'Each statement must be about a different fact from the text. Include a one-sentence "explanation" for every statement.'
@@ -131,18 +148,55 @@ export function buildTrueFalseUserPrompt(params: {
   return lines.join('\n')
 }
 
+/** Builds the user prompt for the 'import' MCQ call: reformat existing questions into MCQ. */
+export function buildImportMcqUserPrompt(params: {
+  chunkText: string
+  existingPrompts?: string[]
+}): string {
+  const lines = [
+    ...textBlock(params.chunkText),
+    'The text above already contains quiz questions. Turn each COMPLETE question that fits a multiple-choice shape into an "mcq" question.',
+    'A question that already lists options: keep its original correct answer; if it has fewer than 4 options, add plausible wrong distractors of the same kind until there are exactly 4.',
+    'An open question with a single factual answer: use that answer as the correct option and invent three plausible same-category distractors.',
+    'Set "type" to "mcq", give exactly 4 entries in "options", and set "correctIndex" (0 to 3) to the correct option.',
+    'For "explanation", use the answer or explanation the source gives if any, otherwise write one simple sentence.',
+    'Do NOT invent questions that are not in the text. Skip incomplete fragments at the start or end of the text.'
+  ]
+  appendAvoidanceSection(lines, params.existingPrompts ?? [], params.chunkText)
+  return lines.join('\n')
+}
+
+/** Builds the user prompt for the 'import' True/False call: reformat true/false-style items. */
+export function buildImportTrueFalseUserPrompt(params: {
+  chunkText: string
+  existingPrompts?: string[]
+}): string {
+  const lines = [
+    ...textBlock(params.chunkText),
+    'The text above already contains quiz questions. Turn each COMPLETE true/false-style statement into a "truefalse" question.',
+    'Set "type" to "truefalse", set "options" to exactly ["True", "False"], and set "correctIndex" to 0 for a true statement or 1 for a false one, matching the source\'s answer.',
+    'For "explanation", use the answer or explanation the source gives if any, otherwise write one simple sentence.',
+    'Only convert items that are genuinely true/false in the text. Do NOT invent questions. Skip incomplete fragments at the start or end of the text.'
+  ]
+  appendAvoidanceSection(lines, params.existingPrompts ?? [], params.chunkText)
+  return lines.join('\n')
+}
+
 /**
- * Builds a per-chunk output schema whose questions are all of a single `type`. Expressed in
- * the plain JSON-Schema subset node-llama-cpp's GBNF grammar accepts: object/array/string/
- * integer types, `properties`/`required`, and a single-value `enum` to pin the type. No
- * `$ref`, no `oneOf`.
+ * Builds a per-chunk output schema whose questions are all of a single `type`, bounded by
+ * `maxItems` (and `minItems: 0`, since an information-thin chunk may legitimately yield few or
+ * none). Expressed in the plain JSON-Schema subset node-llama-cpp's GBNF grammar accepts:
+ * object/array/string/integer types, `properties`/`required`, `minItems`/`maxItems`, and a
+ * single-value `enum` to pin the type. No `$ref`, no `oneOf`.
  */
-function buildQuestionsSchema(typeValue: 'mcq' | 'truefalse'): object {
+function buildQuestionsSchema(typeValue: 'mcq' | 'truefalse', maxItems: number): object {
   return {
     type: 'object',
     properties: {
       questions: {
         type: 'array',
+        minItems: 0,
+        maxItems,
         items: {
           type: 'object',
           properties: {
@@ -163,11 +217,19 @@ function buildQuestionsSchema(typeValue: 'mcq' | 'truefalse'): object {
   }
 }
 
-/** Schema constraining every item to an MCQ question. */
-export const mcqQuestionsSchema = buildQuestionsSchema('mcq')
+// Per-chunk hard ceilings bound runtime and context. 'generate' is tighter than 'import'
+// because import may faithfully carry more pre-written questions per chunk.
+/** 'generate' MCQ schema (<= 12 per chunk). */
+export const mcqQuestionsSchema = buildQuestionsSchema('mcq', 12)
 
-/** Schema constraining every item to a True/False question. */
-export const trueFalseQuestionsSchema = buildQuestionsSchema('truefalse')
+/** 'generate' True/False schema (<= 6 per chunk). */
+export const trueFalseQuestionsSchema = buildQuestionsSchema('truefalse', 6)
+
+/** 'import' MCQ schema (<= 15 per chunk). */
+export const mcqImportSchema = buildQuestionsSchema('mcq', 15)
+
+/** 'import' True/False schema (<= 8 per chunk). */
+export const trueFalseImportSchema = buildQuestionsSchema('truefalse', 8)
 
 /** Tiny schema for the suggested quiz-title call (ARCHITECTURE.md §16). */
 export const titleSchema: object = {
