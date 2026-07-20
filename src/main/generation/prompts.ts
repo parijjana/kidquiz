@@ -114,14 +114,15 @@ function appendAvoidanceSection(
   )
 }
 
-/** Builds the user prompt for the 'generate' MCQ call (uncapped — as many as the text supports). */
+/** Builds the user prompt for the 'generate' MCQ call. `maxItems` mirrors the schema ceiling. */
 export function buildMcqUserPrompt(params: {
   chunkText: string
+  maxItems: number
   existingPrompts?: string[]
 }): string {
   const lines = [
     ...textBlock(params.chunkText),
-    'Write as many good multiple-choice questions as this text supports — cover every distinct fact worth testing, based only on the text above.',
+    `Write up to ${params.maxItems} good multiple-choice questions — as many as the text supports, covering every distinct fact worth testing, based only on the text above.`,
     'Quality over quantity: stop when the facts run out. Do not pad with trivial, obvious, or repetitive questions.',
     'For each question set "type" to "mcq" and give exactly 4 entries in "options": one correct answer plus three wrong but plausible distractors of the same kind or category as the correct answer.',
     'Set "correctIndex" (a number from 0 to 3) to the position of the correct option.',
@@ -131,14 +132,15 @@ export function buildMcqUserPrompt(params: {
   return lines.join('\n')
 }
 
-/** Builds the user prompt for the 'generate' True/False call (uncapped). */
+/** Builds the user prompt for the 'generate' True/False call. `maxItems` mirrors the ceiling. */
 export function buildTrueFalseUserPrompt(params: {
   chunkText: string
+  maxItems: number
   existingPrompts?: string[]
 }): string {
   const lines = [
     ...textBlock(params.chunkText),
-    'Write as many good true/false statements as this text supports — cover every distinct fact worth testing that a child can judge as True or False, based only on the text above.',
+    `Write up to ${params.maxItems} good true/false statements — as many as the text supports, covering distinct facts a child can judge as True or False, based only on the text above.`,
     'Quality over quantity: stop when the facts run out. Do not pad with trivial, obvious, or repetitive statements.',
     'Make roughly half of the statements false by changing a detail so the statement disagrees with the text; the rest should be true.',
     'For each statement set "type" to "truefalse", set "options" to exactly ["True", "False"], and set "correctIndex" to 0 if the statement is true or 1 if it is false.',
@@ -151,11 +153,12 @@ export function buildTrueFalseUserPrompt(params: {
 /** Builds the user prompt for the 'import' MCQ call: reformat existing questions into MCQ. */
 export function buildImportMcqUserPrompt(params: {
   chunkText: string
+  maxItems: number
   existingPrompts?: string[]
 }): string {
   const lines = [
     ...textBlock(params.chunkText),
-    'The text above already contains quiz questions. Turn each COMPLETE question that fits a multiple-choice shape into an "mcq" question.',
+    `The text above already contains quiz questions. Turn each COMPLETE question that fits a multiple-choice shape into an "mcq" question (up to ${params.maxItems}).`,
     'A question that already lists options: keep its original correct answer; if it has fewer than 4 options, add plausible wrong distractors of the same kind until there are exactly 4.',
     'An open question with a single factual answer: use that answer as the correct option and invent three plausible same-category distractors.',
     'Set "type" to "mcq", give exactly 4 entries in "options", and set "correctIndex" (0 to 3) to the correct option.',
@@ -169,11 +172,12 @@ export function buildImportMcqUserPrompt(params: {
 /** Builds the user prompt for the 'import' True/False call: reformat true/false-style items. */
 export function buildImportTrueFalseUserPrompt(params: {
   chunkText: string
+  maxItems: number
   existingPrompts?: string[]
 }): string {
   const lines = [
     ...textBlock(params.chunkText),
-    'The text above already contains quiz questions. Turn each COMPLETE true/false-style statement into a "truefalse" question.',
+    `The text above already contains quiz questions. Turn each COMPLETE true/false-style statement into a "truefalse" question (up to ${params.maxItems}).`,
     'Set "type" to "truefalse", set "options" to exactly ["True", "False"], and set "correctIndex" to 0 for a true statement or 1 for a false one, matching the source\'s answer.',
     'For "explanation", use the answer or explanation the source gives if any, otherwise write one simple sentence.',
     'Only convert items that are genuinely true/false in the text. Do NOT invent questions. Skip incomplete fragments at the start or end of the text.'
@@ -185,9 +189,11 @@ export function buildImportTrueFalseUserPrompt(params: {
 /**
  * Builds a per-chunk output schema whose questions are all of a single `type`, bounded by
  * `maxItems` (and `minItems: 0`, since an information-thin chunk may legitimately yield few or
- * none). Expressed in the plain JSON-Schema subset node-llama-cpp's GBNF grammar accepts:
- * object/array/string/integer types, `properties`/`required`, `minItems`/`maxItems`, and a
- * single-value `enum` to pin the type. No `$ref`, no `oneOf`.
+ * none). The grammar is created per call, so the caller passes a word-count-driven `maxItems`
+ * each time rather than reusing a fixed constant. Expressed in the plain JSON-Schema subset
+ * node-llama-cpp's GBNF grammar accepts: object/array/string/integer types,
+ * `properties`/`required`, `minItems`/`maxItems`, and a single-value `enum` to pin the type.
+ * No `$ref`, no `oneOf`.
  */
 function buildQuestionsSchema(typeValue: 'mcq' | 'truefalse', maxItems: number): object {
   return {
@@ -217,19 +223,15 @@ function buildQuestionsSchema(typeValue: 'mcq' | 'truefalse', maxItems: number):
   }
 }
 
-// Per-chunk hard ceilings bound runtime and context. 'generate' is tighter than 'import'
-// because import may faithfully carry more pre-written questions per chunk.
-/** 'generate' MCQ schema (<= 12 per chunk). */
-export const mcqQuestionsSchema = buildQuestionsSchema('mcq', 12)
+/** MCQ output schema capped at `maxItems` questions for this chunk. */
+export function mcqQuestionsSchema(maxItems: number): object {
+  return buildQuestionsSchema('mcq', maxItems)
+}
 
-/** 'generate' True/False schema (<= 6 per chunk). */
-export const trueFalseQuestionsSchema = buildQuestionsSchema('truefalse', 6)
-
-/** 'import' MCQ schema (<= 15 per chunk). */
-export const mcqImportSchema = buildQuestionsSchema('mcq', 15)
-
-/** 'import' True/False schema (<= 8 per chunk). */
-export const trueFalseImportSchema = buildQuestionsSchema('truefalse', 8)
+/** True/False output schema capped at `maxItems` statements for this chunk. */
+export function trueFalseQuestionsSchema(maxItems: number): object {
+  return buildQuestionsSchema('truefalse', maxItems)
+}
 
 /** Tiny schema for the suggested quiz-title call (ARCHITECTURE.md §16). */
 export const titleSchema: object = {

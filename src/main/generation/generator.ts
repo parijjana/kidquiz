@@ -25,7 +25,7 @@ import { loadActiveModel } from '../llm/inference'
 import { createGenerationSession, type GenerationSession } from '../llm/provider'
 import * as questionsRepo from '../db/repositories/questions'
 import * as textsRepo from '../db/repositories/texts'
-import { chunkText } from './chunker'
+import { chunkText, countWords } from './chunker'
 import {
   buildImportMcqUserPrompt,
   buildImportTrueFalseUserPrompt,
@@ -33,10 +33,8 @@ import {
   buildSystemPrompt,
   buildTitlePrompt,
   buildTrueFalseUserPrompt,
-  mcqImportSchema,
   mcqQuestionsSchema,
   titleSchema,
-  trueFalseImportSchema,
   trueFalseQuestionsSchema
 } from './prompts'
 import { isDuplicatePrompt } from './similarity'
@@ -120,22 +118,53 @@ function validateQuestion(raw: unknown): ValidQuestion | null {
   }
 }
 
-/** Selects the user-prompt builder and output schema for a (mode, type) pair. */
+/** Clamps `value` to the inclusive range [min, max]. */
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
+/**
+ * Per-chunk question ceilings scaled by the chunk's word count, so a short paste yields a
+ * handful and a full chunk reaches the fixed upper bounds. 'generate' targets roughly one MCQ
+ * per ~90 words and one T/F per ~220 words; 'import' assumes ~25-word source items for MCQ and
+ * ~60 words per T/F item. Upper bounds are the previous fixed ceilings (12/6, 15/8).
+ */
+function capsForChunk(
+  mode: GenerationOptions['mode'],
+  words: number
+): { mcqCap: number; tfCap: number } {
+  if (mode === 'import') {
+    return {
+      mcqCap: clamp(Math.ceil(words / 25), 3, 15),
+      tfCap: clamp(Math.ceil(words / 60), 2, 8)
+    }
+  }
+  return {
+    mcqCap: clamp(Math.ceil(words / 90), 2, 12),
+    tfCap: clamp(Math.ceil(words / 220), 1, 6)
+  }
+}
+
+/** Selects the user-prompt builder and output schema for a (mode, type) pair at a given cap. */
 function promptAndSchemaFor(
   mode: GenerationOptions['mode'],
   questionType: QuestionType,
   chunk: string,
-  existingPrompts: string[]
+  existingPrompts: string[],
+  maxItems: number
 ): { userPrompt: string; jsonSchema: object } {
-  const params = { chunkText: chunk, existingPrompts }
+  const params = { chunkText: chunk, existingPrompts, maxItems }
   if (mode === 'import') {
     return questionType === 'mcq'
-      ? { userPrompt: buildImportMcqUserPrompt(params), jsonSchema: mcqImportSchema }
-      : { userPrompt: buildImportTrueFalseUserPrompt(params), jsonSchema: trueFalseImportSchema }
+      ? { userPrompt: buildImportMcqUserPrompt(params), jsonSchema: mcqQuestionsSchema(maxItems) }
+      : {
+          userPrompt: buildImportTrueFalseUserPrompt(params),
+          jsonSchema: trueFalseQuestionsSchema(maxItems)
+        }
   }
   return questionType === 'mcq'
-    ? { userPrompt: buildMcqUserPrompt(params), jsonSchema: mcqQuestionsSchema }
-    : { userPrompt: buildTrueFalseUserPrompt(params), jsonSchema: trueFalseQuestionsSchema }
+    ? { userPrompt: buildMcqUserPrompt(params), jsonSchema: mcqQuestionsSchema(maxItems) }
+    : { userPrompt: buildTrueFalseUserPrompt(params), jsonSchema: trueFalseQuestionsSchema(maxItems) }
 }
 
 /**
@@ -154,10 +183,17 @@ async function generateForType(
   ageBand: AgeBand,
   chunkLabel: string,
   existingPrompts: string[],
+  maxItems: number,
   onToken: (tokensSoFarInCall: number) => void
 ): Promise<unknown[]> {
   try {
-    const { userPrompt, jsonSchema } = promptAndSchemaFor(mode, questionType, chunk, existingPrompts)
+    const { userPrompt, jsonSchema } = promptAndSchemaFor(
+      mode,
+      questionType,
+      chunk,
+      existingPrompts,
+      maxItems
+    )
     const parsed = await session.generateStructured({
       systemPrompt: buildSystemPrompt({ ageBand, mode }),
       userPrompt,
@@ -298,10 +334,13 @@ async function runGeneration(
       const chunk = chunks[index]
       const chunkLabel = `chunk ${currentChunkIndex}/${chunkCount}`
 
+      // Per-chunk ceilings scale with the chunk's length (see capsForChunk).
+      const { mcqCap, tfCap } = capsForChunk(opts.mode, countWords(chunk))
+
       // One model call per type enforces the ~70/30 mix by construction. Both batches always
-      // run (schema `minItems: 0` lets a thin chunk yield few or none); the schema ceiling —
-      // not a requested count — bounds how many come back. After each call, fold its final
-      // token count into the run total.
+      // run (schema `minItems: 0` lets a thin chunk yield few or none); the word-count-driven
+      // ceiling — not a requested count — bounds how many come back. After each call, fold its
+      // final token count into the run total.
       const rawQuestions: unknown[] = []
       rawQuestions.push(
         ...(await generateForType(
@@ -312,6 +351,7 @@ async function runGeneration(
           opts.ageBand,
           chunkLabel,
           seenPrompts,
+          mcqCap,
           onToken
         ))
       )
@@ -326,6 +366,7 @@ async function runGeneration(
           opts.ageBand,
           chunkLabel,
           seenPrompts,
+          tfCap,
           onToken
         ))
       )
