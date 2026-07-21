@@ -18,29 +18,14 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     // Official Qwen repo. Single-file GGUF.
     // Verified: huggingface.co/api/models/Qwen/Qwen2.5-1.5B-Instruct-GGUF
     id: 'qwen2.5-1.5b-q4',
-    displayName: 'Fast — for older or low-memory laptops',
+    displayName: 'Recommended — fast and reliable on most laptops',
     description:
-      'Qwen2.5 1.5B Instruct (Q4_K_M). Smallest and fastest option; good for quick quizzes ' +
-      'on older or low-memory machines. Question quality is more basic than the larger models.',
+      'Qwen2.5 1.5B Instruct (Q4_K_M). The recommended everyday choice: quick to download, fast ' +
+      'to run on most laptops, and dependable at producing well-formed quiz questions.',
     fileSizeBytes: 1_117_320_736,
     minRamGB: 4,
     hfUrl:
       'https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf',
-    recommended: false
-  },
-  {
-    // Meta's official Llama 3.2 repo is gated; using bartowski's reputable ungated GGUF
-    // mirror instead. Single-file GGUF.
-    // Verified: huggingface.co/api/models/bartowski/Llama-3.2-3B-Instruct-GGUF
-    id: 'llama3.2-3b-q4',
-    displayName: 'Recommended — good questions, works on most laptops',
-    description:
-      'Llama 3.2 3B Instruct (Q4_K_M). The recommended balance of quality and speed; produces ' +
-      'good questions and runs on most laptops.',
-    fileSizeBytes: 2_019_377_696,
-    minRamGB: 8,
-    hfUrl:
-      'https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf',
     recommended: true
   },
   {

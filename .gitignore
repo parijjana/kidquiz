@@ -4,3 +4,4 @@ dist
 data/
 *.gguf
 .DS_Store
+/data.txt

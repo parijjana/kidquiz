@@ -199,13 +199,27 @@ Push events (main → renderer, `webContents.send`):
 2. Per chunk, request `ceil(count * chunkWords/totalWords)` questions, minimum 2, with a
    mix of ~70% MCQ / 30% True/False.
 3. `inference.ts`: one loaded model instance reused across calls. Generation MUST use
-   node-llama-cpp's JSON-schema grammar
-   (`llama.createGrammarForJsonSchema`) so output is structurally valid. Schema (per chunk):
-   `{questions: [{type:'mcq'|'truefalse', prompt:string, options:string[], correctIndex:number, explanation:string}]}`.
+   node-llama-cpp's JSON-schema grammar (`llama.createGrammarForJsonSchema`) so output is
+   structurally valid. **The grammar must constrain array lengths, not just types** —
+   small quantized models otherwise take the shortest legal path and emit empty/degenerate
+   arrays (verified: an unconstrained `options` array made a 3B model emit `"options": []`
+   for well-formed prompts, and every such question was then dropped, producing "no
+   results"). Per-chunk schemas:
+   - MCQ: `{questions:[{type:'mcq', prompt:string, options:string[4] (minItems:4,maxItems:4),
+     correctIndex:integer, explanation:string}]}` — options pinned to exactly 4.
+   - True/False: the model does NOT emit options at all — `{questions:[{type:'truefalse',
+     prompt:string, correct:boolean, explanation:string}]}`. `generator.ts` supplies
+     `options:["True","False"]` and `correctIndex = correct ? 0 : 1`. (Letting a small model
+     free-type the two option strings reliably produced non-"True"/"False" values that were
+     then dropped — removing that freedom eliminates the failure class.)
 4. `generator.ts` post-validates each question before insert: MCQ has exactly 4 non-empty
    distinct options; truefalse options are exactly ["True","False"]; correctIndex in range;
-   prompt non-empty and not a duplicate (case-insensitive exact match) of an existing
-   prompt for the same text. Invalid items are dropped silently (log to console), not retried.
+   prompt non-empty and not a duplicate (case-insensitive exact/near match, see similarity.ts)
+   of an existing prompt for the same text. Invalid items are dropped (log to console).
+   **Retry-on-zero-yield:** if a per-type call inserts ZERO questions (all empty/invalid/dup)
+   for a chunk that has content, retry that one call ONCE (fresh session). Small models
+   intermittently return nothing on a chunk they handle fine on a second attempt. At most one
+   retry per type-call; a second empty result is accepted as "this chunk yielded none".
 5. Prompts (`prompts.ts`) must: state the reader is a primary-school child in the given
    age band, demand simple vocabulary, questions answerable ONLY from the given text,
    plausible same-category distractors, and one-sentence explanations. Temperature 0.7.
@@ -228,14 +242,20 @@ Curated, hardcoded list. Each entry: `id`, `displayName` (outcome-oriented label
 
 | id | Label | Model file |
 |---|---|---|
-| `qwen2.5-1.5b-q4` | "Fast — for older or low-memory laptops" | Qwen2.5-1.5B-Instruct Q4_K_M GGUF (official Qwen HF repo) |
-| `llama3.2-3b-q4` | "Recommended — good questions, works on most laptops" (recommended: true) | Llama-3.2-3B-Instruct Q4_K_M GGUF |
+| `qwen2.5-1.5b-q4` | "Recommended — fast and reliable on most laptops" (recommended: true) | Qwen2.5-1.5B-Instruct Q4_K_M GGUF (official Qwen HF repo) |
 | `qwen2.5-7b-q4` | "Best questions — needs a newer laptop (8 GB+ free memory)" | Qwen2.5-7B-Instruct Q4_K_M GGUF |
+
+**Llama-3.2-3B was removed (v1.3).** In testing on the reference machine it was ~30–40x
+slower than Qwen-1.5B under grammar-constrained decoding AND produced corrupt option text
+(`{u'..':u'Correct'}`, `{{ '..' }}`) even once options were length-constrained. Qwen-1.5B
+was faster, smaller, and clean on the same inputs, so it becomes the recommended default.
+Do not re-add a Llama entry without re-verifying it produces clean grammar-constrained JSON.
 
 Verify exact HF URLs resolve (HEAD request) at build time is NOT required; just use the
 canonical `huggingface.co/<repo>/resolve/main/<file>` form. Downloads via node-llama-cpp
 `createModelDownloader` (gives resume + progress). The app auto-suggests the best entry
-whose `minRamGB` fits detected RAM.
+whose `minRamGB` fits detected RAM. Since the two remaining models are both Qwen, migrate
+any persisted active-model id of `llama3.2-3b-q4` to the recommended entry on load.
 
 ## 9. Theming
 

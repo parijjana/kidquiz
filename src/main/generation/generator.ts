@@ -118,6 +118,25 @@ function validateQuestion(raw: unknown): ValidQuestion | null {
   }
 }
 
+/**
+ * Converts a raw True/False item ({prompt, correct:boolean, explanation}) — the shape the
+ * grammar now emits — into the standard stored question shape validateQuestion expects, by
+ * supplying `options:["True","False"]` and `correctIndex = correct ? 0 : 1` (§6.3). A
+ * non-object or non-boolean `correct` is passed through unchanged so validateQuestion drops it.
+ */
+function buildTrueFalseCandidate(raw: unknown): unknown {
+  if (raw === null || typeof raw !== 'object') return raw
+  const record = raw as Record<string, unknown>
+  if (typeof record.correct !== 'boolean') return raw
+  return {
+    type: 'truefalse',
+    prompt: record.prompt,
+    options: ['True', 'False'],
+    correctIndex: record.correct ? 0 : 1,
+    explanation: record.explanation
+  }
+}
+
 /** Clamps `value` to the inclusive range [min, max]. */
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
@@ -326,64 +345,16 @@ async function runGeneration(
       .listByText(textId)
       .map((question) => question.prompt)
 
-    for (let index = 0; index < chunks.length; index++) {
-      // Cancellation is checked between chunks: the current chunk always finishes.
-      if (state.cancelled) break
-
-      currentChunkIndex = index + 1
-      const chunk = chunks[index]
-      const chunkLabel = `chunk ${currentChunkIndex}/${chunkCount}`
-
-      // Per-chunk ceilings scale with the chunk's length (see capsForChunk).
-      const { mcqCap, tfCap } = capsForChunk(opts.mode, countWords(chunk))
-
-      // One model call per type enforces the ~70/30 mix by construction. Both batches always
-      // run (schema `minItems: 0` lets a thin chunk yield few or none); the word-count-driven
-      // ceiling — not a requested count — bounds how many come back. After each call, fold its
-      // final token count into the run total.
-      const rawQuestions: unknown[] = []
-      rawQuestions.push(
-        ...(await generateForType(
-          session,
-          'mcq',
-          opts.mode,
-          chunk,
-          opts.ageBand,
-          chunkLabel,
-          seenPrompts,
-          mcqCap,
-          onToken
-        ))
-      )
-      completedTokens += currentCallTokens
-      currentCallTokens = 0
-      rawQuestions.push(
-        ...(await generateForType(
-          session,
-          'truefalse',
-          opts.mode,
-          chunk,
-          opts.ageBand,
-          chunkLabel,
-          seenPrompts,
-          tfCap,
-          onToken
-        ))
-      )
-      completedTokens += currentCallTokens
-      currentCallTokens = 0
-
-      // Once per run, right after the first chunk's batches: suggest a quiz title from that
-      // chunk. Skipped in 'import' mode — the pasted text is a question list, not a reading
-      // passage, so a topic title is not meaningful. Non-fatal; emits no extra events (§16).
-      if (index === 0 && opts.mode === 'generate') {
-        await suggestQuizTitle(session, textId, chunk)
-      }
-
-      for (const rawQuestion of rawQuestions) {
-        const valid = validateQuestion(rawQuestion)
+    // Validates, dedups, and inserts the raw items from one type-call; returns how many were
+    // actually inserted. True/False items are first normalised into the stored shape.
+    const processResults = (questionType: QuestionType, rawItems: unknown[]): number => {
+      let inserted = 0
+      for (const rawItem of rawItems) {
+        const candidate =
+          questionType === 'truefalse' ? buildTrueFalseCandidate(rawItem) : rawItem
+        const valid = validateQuestion(candidate)
         if (valid === null) {
-          console.warn('[generation] dropped invalid question:', JSON.stringify(rawQuestion))
+          console.warn('[generation] dropped invalid question:', JSON.stringify(rawItem))
           continue
         }
         if (isDuplicatePrompt(valid.prompt, seenPrompts)) {
@@ -404,9 +375,81 @@ async function runGeneration(
         questionIds.push(id)
         seenPrompts.push(valid.prompt)
         questionsSoFar++
+        inserted++
+      }
+      return inserted
+    }
+
+    // Runs one type-call on the given session and folds its final token count into the run
+    // total (the token bookkeeping the progress emitter reads).
+    const runTypeCall = async (
+      questionType: QuestionType,
+      sess: GenerationSession,
+      cap: number,
+      chunk: string,
+      chunkLabel: string
+    ): Promise<unknown[]> => {
+      const raw = await generateForType(
+        sess,
+        questionType,
+        opts.mode,
+        chunk,
+        opts.ageBand,
+        chunkLabel,
+        seenPrompts,
+        cap,
+        onToken
+      )
+      completedTokens += currentCallTokens
+      currentCallTokens = 0
+      return raw
+    }
+
+    for (let index = 0; index < chunks.length; index++) {
+      // Cancellation is checked between chunks: the current chunk always finishes.
+      if (state.cancelled) break
+
+      currentChunkIndex = index + 1
+      const chunk = chunks[index]
+      const chunkLabel = `chunk ${currentChunkIndex}/${chunkCount}`
+
+      // Per-chunk ceilings scale with the chunk's length (see capsForChunk).
+      const { mcqCap, tfCap } = capsForChunk(opts.mode, countWords(chunk))
+      const chunkHasContent = countWords(chunk) > 0
+
+      // One call per type enforces the ~70/30 mix by construction; MCQ first, then True/False.
+      // Each call's results are validated/deduped/inserted immediately so we know the insert
+      // count for that (chunk, type) and can retry-on-zero-yield (§6.4).
+      const perType: Array<{ questionType: QuestionType; cap: number }> = [
+        { questionType: 'mcq', cap: mcqCap },
+        { questionType: 'truefalse', cap: tfCap }
+      ]
+      for (const { questionType, cap } of perType) {
+        const inserted = processResults(
+          questionType,
+          await runTypeCall(questionType, session, cap, chunk, chunkLabel)
+        )
+        // Small models intermittently return nothing for a chunk they handle fine on a second
+        // attempt: retry this one call ONCE with a fresh session. A second zero is accepted.
+        if (inserted === 0 && chunkHasContent) {
+          console.warn(
+            `[generation] ${chunkLabel} ${questionType} yielded 0 questions; retrying once with a fresh session`
+          )
+          processResults(
+            questionType,
+            await runTypeCall(questionType, createGenerationSession(), cap, chunk, chunkLabel)
+          )
+        }
       }
 
-      // One progress event per chunk, after both type calls complete.
+      // Once per run, right after the first chunk's batches: suggest a quiz title from that
+      // chunk. Skipped in 'import' mode — the pasted text is a question list, not a reading
+      // passage, so a topic title is not meaningful. Non-fatal; emits no extra events (§16).
+      if (index === 0 && opts.mode === 'generate') {
+        await suggestQuizTitle(session, textId, chunk)
+      }
+
+      // One progress event per chunk, after both type calls (and any retries) complete.
       emitGenerating()
     }
 

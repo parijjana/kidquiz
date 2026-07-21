@@ -143,7 +143,7 @@ export function buildTrueFalseUserPrompt(params: {
     `Write up to ${params.maxItems} good true/false statements — as many as the text supports, covering distinct facts a child can judge as True or False, based only on the text above.`,
     'Quality over quantity: stop when the facts run out. Do not pad with trivial, obvious, or repetitive statements.',
     'Make roughly half of the statements false by changing a detail so the statement disagrees with the text; the rest should be true.',
-    'For each statement set "type" to "truefalse", set "options" to exactly ["True", "False"], and set "correctIndex" to 0 if the statement is true or 1 if it is false.',
+    'For each statement set "type" to "truefalse", set "prompt" to the statement, and set "correct" to true if the statement is true according to the text or false if it is not.',
     'Each statement must be about a different fact from the text. Include a one-sentence "explanation" for every statement.'
   ]
   appendAvoidanceSection(lines, params.existingPrompts ?? [], params.chunkText)
@@ -178,7 +178,7 @@ export function buildImportTrueFalseUserPrompt(params: {
   const lines = [
     ...textBlock(params.chunkText),
     `The text above already contains quiz questions. Turn each COMPLETE true/false-style statement into a "truefalse" question (up to ${params.maxItems}).`,
-    'Set "type" to "truefalse", set "options" to exactly ["True", "False"], and set "correctIndex" to 0 for a true statement or 1 for a false one, matching the source\'s answer.',
+    'Set "type" to "truefalse", set "prompt" to the statement, and set "correct" to true for a true statement or false for a false one, matching the source\'s answer.',
     'For "explanation", use the answer or explanation the source gives if any, otherwise write one simple sentence.',
     'Only convert items that are genuinely true/false in the text. Do NOT invent questions. Skip incomplete fragments at the start or end of the text.'
   ]
@@ -187,15 +187,14 @@ export function buildImportTrueFalseUserPrompt(params: {
 }
 
 /**
- * Builds a per-chunk output schema whose questions are all of a single `type`, bounded by
- * `maxItems` (and `minItems: 0`, since an information-thin chunk may legitimately yield few or
- * none). The grammar is created per call, so the caller passes a word-count-driven `maxItems`
- * each time rather than reusing a fixed constant. Expressed in the plain JSON-Schema subset
- * node-llama-cpp's GBNF grammar accepts: object/array/string/integer types,
- * `properties`/`required`, `minItems`/`maxItems`, and a single-value `enum` to pin the type.
- * No `$ref`, no `oneOf`.
+ * Wraps a per-item schema in the `{questions: [...]}` envelope, bounded by `maxItems` (and
+ * `minItems: 0`, since an information-thin chunk may legitimately yield few or none). The
+ * grammar is created per call, so the caller passes a word-count-driven `maxItems` each time.
+ * Everything stays in the plain JSON-Schema subset node-llama-cpp's GBNF grammar accepts:
+ * object/array/string/integer/boolean types, `properties`/`required`, `minItems`/`maxItems`,
+ * and single-value `enum`s. No `$ref`, no `oneOf`.
  */
-function buildQuestionsSchema(typeValue: 'mcq' | 'truefalse', maxItems: number): object {
+function wrapQuestionsSchema(itemSchema: object, maxItems: number): object {
   return {
     type: 'object',
     properties: {
@@ -203,34 +202,60 @@ function buildQuestionsSchema(typeValue: 'mcq' | 'truefalse', maxItems: number):
         type: 'array',
         minItems: 0,
         maxItems,
-        items: {
-          type: 'object',
-          properties: {
-            type: { enum: [typeValue] },
-            prompt: { type: 'string' },
-            options: {
-              type: 'array',
-              items: { type: 'string' }
-            },
-            correctIndex: { type: 'integer' },
-            explanation: { type: 'string' }
-          },
-          required: ['type', 'prompt', 'options', 'correctIndex', 'explanation']
-        }
+        items: itemSchema
       }
     },
     required: ['questions']
   }
 }
 
-/** MCQ output schema capped at `maxItems` questions for this chunk. */
+/**
+ * MCQ output schema capped at `maxItems` questions for this chunk. The `options` array is
+ * pinned to EXACTLY 4 strings (`minItems`/`maxItems`) — without this, small quantized models
+ * take the shortest legal path and emit `"options": []`, which validation then drops (§6.3).
+ */
 export function mcqQuestionsSchema(maxItems: number): object {
-  return buildQuestionsSchema('mcq', maxItems)
+  return wrapQuestionsSchema(
+    {
+      type: 'object',
+      properties: {
+        type: { enum: ['mcq'] },
+        prompt: { type: 'string' },
+        options: {
+          type: 'array',
+          minItems: 4,
+          maxItems: 4,
+          items: { type: 'string' }
+        },
+        correctIndex: { type: 'integer' },
+        explanation: { type: 'string' }
+      },
+      required: ['type', 'prompt', 'options', 'correctIndex', 'explanation']
+    },
+    maxItems
+  )
 }
 
-/** True/False output schema capped at `maxItems` statements for this chunk. */
+/**
+ * True/False output schema capped at `maxItems` statements for this chunk. The model emits a
+ * boolean `correct` and NO options/correctIndex — letting a small model free-type the two
+ * option strings reliably produced non-"True"/"False" values that were then dropped (§6.3).
+ * `generator.ts` supplies `options:["True","False"]` and `correctIndex = correct ? 0 : 1`.
+ */
 export function trueFalseQuestionsSchema(maxItems: number): object {
-  return buildQuestionsSchema('truefalse', maxItems)
+  return wrapQuestionsSchema(
+    {
+      type: 'object',
+      properties: {
+        type: { enum: ['truefalse'] },
+        prompt: { type: 'string' },
+        correct: { type: 'boolean' },
+        explanation: { type: 'string' }
+      },
+      required: ['type', 'prompt', 'correct', 'explanation']
+    },
+    maxItems
+  )
 }
 
 /** Tiny schema for the suggested quiz-title call (ARCHITECTURE.md §16). */

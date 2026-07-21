@@ -49,7 +49,13 @@ export function getActiveModelId(): string | null {
   if (!existsSync(path)) return null
   try {
     const parsed = JSON.parse(readFileSync(path, 'utf8')) as Partial<ActiveModelState>
-    return typeof parsed.activeModelId === 'string' ? parsed.activeModelId : null
+    // Migrate away from an id that is no longer in the catalog (e.g. the removed
+    // `llama3.2-3b-q4`): treat it as unset so callers fall back to picking/downloading a
+    // current model. The user's downloaded file is left on disk, just no longer offered.
+    if (typeof parsed.activeModelId === 'string' && getCatalogEntry(parsed.activeModelId)) {
+      return parsed.activeModelId
+    }
+    return null
   } catch {
     // Corrupt file — treat as "no active model" rather than crashing.
     return null
